@@ -690,6 +690,10 @@ tbody td {
         <button class="btn btn-secondary" onclick="exportJSON()">⬇️ Esporta dati JSON</button>
         <button class="btn btn-secondary" onclick="triggerImport()">⬆️ Importa dati JSON</button>
         <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importJSON(event)">
+        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+        <button class="btn btn-green" onclick="triggerImportXLSX()">📊 Importa atleti da Excel</button>
+        <input type="file" id="import-xlsx-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importXLSX(event)">
+        <div style="font-size:11px;color:var(--text-dim);">Formato: Pettorale | Cognome | Nome | ASD | Categoria</div>
       </div>
     </div>
 
@@ -870,6 +874,7 @@ tbody td {
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ══════════════════════════════════════════
 //  STATE
@@ -1688,6 +1693,84 @@ function resetScores() {
   saveState();
   renderJudges();
   toast('Punteggi eliminati');
+}
+
+function triggerImportXLSX() {
+  document.getElementById('import-xlsx-file').click();
+}
+
+function importXLSX(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      if (rows.length < 2) return toast('File vuoto o senza dati', 'error');
+
+      // Skip header row
+      const dataRows = rows.slice(1).filter(r => r.some(c => c !== ''));
+
+      let imported = 0, skipped = 0, autoId = getMaxPettorale() + 1;
+      const newAthletes = [];
+
+      for (const row of dataRows) {
+        let [pet, cognome, nome, asd, cat] = row.map(c => String(c || '').trim());
+
+        // Categoria mapping
+        cat = cat.toUpperCase();
+        if (cat === 'CAMMINATORE' || cat === 'C') cat = 'C';
+        else if (cat === 'ISTRUTTORE' || cat === 'I') cat = 'I';
+        else { skipped++; continue; }
+
+        if (!cognome || !nome) { skipped++; continue; }
+
+        // Pettorale: usa quello del file o auto-assegna
+        let pettoraleNum = parseInt(pet);
+        if (isNaN(pettoraleNum) || pettoraleNum <= 0) {
+          pettoraleNum = autoId++;
+        }
+
+        // Skip duplicate pettorali
+        if (state.athletes.find(a => a.pettorale === pettoraleNum)) {
+          skipped++; continue;
+        }
+
+        newAthletes.push({
+          pettorale: pettoraleNum,
+          cognome: cognome.toUpperCase(),
+          nome: nome.charAt(0).toUpperCase() + nome.slice(1).toLowerCase(),
+          asd: asd.toUpperCase(),
+          cat
+        });
+        imported++;
+      }
+
+      if (imported === 0) return toast('Nessun atleta valido trovato', 'error');
+
+      if (!confirm(`Importare ${imported} atleti?${skipped > 0 ? ' (' + skipped + ' righe saltate)' : ''}`)) return;
+
+      state.athletes = [...state.athletes, ...newAthletes];
+      saveState();
+      renderAtleti();
+      showSection('atleti');
+      toast(`✅ ${imported} atleti importati${skipped > 0 ? ', ' + skipped + ' saltati' : ''}`);
+    } catch(err) {
+      console.error(err);
+      toast('Errore lettura file: ' + err.message, 'error');
+    }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function getMaxPettorale() {
+  if (state.athletes.length === 0) return 0;
+  return Math.max(...state.athletes.map(a => a.pettorale));
 }
 
 function resetAll() {
