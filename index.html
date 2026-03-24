@@ -694,6 +694,11 @@ tbody td {
         <button class="btn btn-green" onclick="triggerImportXLSX()">📊 Importa atleti da Excel</button>
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importXLSX(event)">
         <div style="font-size:11px;color:var(--text-dim);">Formato: Pettorale | Cognome | Nome | ASD | Categoria</div>
+        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+        <button class="btn btn-secondary" onclick="triggerImportScoresXLSX()">📊 Importa punteggi da Excel</button>
+        <input type="file" id="import-scores-xlsx" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importScoresXLSX(event)">
+        <div style="font-size:11px;color:var(--text-dim);">Formato: Pettorale | G1 | G2 | … | G10</div>
+        <button class="btn btn-secondary" onclick="exportScoresXLSX()">⬇️ Esporta punteggi Excel</button>
       </div>
     </div>
 
@@ -1693,6 +1698,77 @@ function resetScores() {
   saveState();
   renderJudges();
   toast('Punteggi eliminati');
+}
+
+function triggerImportScoresXLSX() {
+  document.getElementById('import-scores-xlsx').click();
+}
+
+function importScoresXLSX(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      if (rows.length < 2) return toast('File vuoto', 'error');
+
+      let imported = 0, skipped = 0;
+      const dataRows = rows.slice(1).filter(r => r[0] !== '');
+
+      for (const row of dataRows) {
+        const pet = String(row[0]).trim();
+        const pNum = parseInt(pet);
+        if (isNaN(pNum)) { skipped++; continue; }
+
+        if (!state.scores[String(pNum)]) state.scores[String(pNum)] = {};
+
+        for (let j = 1; j <= 10; j++) {
+          const val = row[j];
+          if (val !== '' && val !== null && val !== undefined && !isNaN(Number(val))) {
+            state.scores[String(pNum)][j] = Number(val);
+          }
+        }
+        imported++;
+      }
+
+      saveState();
+      renderAtleti();
+      toast(`✅ Punteggi importati: ${imported} atleti${skipped ? ', ' + skipped + ' saltati' : ''}`);
+    } catch(err) {
+      toast('Errore: ' + err.message, 'error');
+    }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function exportScoresXLSX() {
+  const wb = XLSX.utils.book_new();
+  const header = ['Pettorale','Cognome','Nome','ASD','Cat.','G1','G2','G3','G4','G5','G6','G7','G8','G9','G10','Totale'];
+  const rows = [header];
+
+  const sorted = [...state.athletes].sort((a,b) => {
+    if (a.cat !== b.cat) return a.cat === 'I' ? 1 : -1;
+    return a.pettorale - b.pettorale;
+  });
+
+  for (const a of sorted) {
+    const sc = getAthleteScores(a.pettorale);
+    const judgeScores = Array.from({length:10}, (_,i) => sc[i+1] !== undefined ? sc[i+1] : '');
+    const total = getTotal(a.pettorale);
+    rows.push([a.pettorale, a.cognome, a.nome, a.asd, a.cat,
+      ...judgeScores, total || '']);
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [7,18,14,26,5,5,5,5,5,5,5,5,5,5,5,8].map(w => ({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Punteggi');
+  XLSX.writeFile(wb, `punteggi_miglio_rosso_${state.editionYear||'export'}.xlsx`);
+  toast('Export punteggi completato');
 }
 
 function triggerImportXLSX() {
