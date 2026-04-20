@@ -787,19 +787,69 @@ tbody td {
     </div>
     <div class="modal-body">
       <div id="judge-modal-step1">
-        <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px;">
-          Carica la foto della scheda del giudice. Gemini leggerà automaticamente tutti i punteggi.
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
+          Carica fino a <strong>4 foto</strong> della scheda (una per pagina). Gemini le leggerà tutte e aggregherà i punteggi.
         </p>
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" id="judge-file-input" accept="image/*" onchange="handleJudgeFile(event)">
-          <div class="upload-icon">📸</div>
-          <div class="upload-text"><strong>Tocca o trascina</strong> la foto della scheda</div>
-          <div class="upload-text" style="margin-top:4px;font-size:11px;">JPG, PNG, HEIC — max 10MB</div>
+
+        <!-- Slot 4 foto -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;" id="photo-slots">
+          <!-- Slot 1 -->
+          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-1">
+            <input type="file" accept="image/*" onchange="handleSlotFile(event,1)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+            <div id="slot-preview-1" style="display:none;position:relative;">
+              <img id="slot-img-1" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
+              <button onclick="removeSlot(1)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
+              <div id="slot-status-1" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
+            </div>
+            <div id="slot-empty-1">
+              <div style="font-size:24px;">📸</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 1</strong><br>Pett. 1–26</div>
+            </div>
+          </div>
+          <!-- Slot 2 -->
+          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-2">
+            <input type="file" accept="image/*" onchange="handleSlotFile(event,2)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+            <div id="slot-preview-2" style="display:none;position:relative;">
+              <img id="slot-img-2" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
+              <button onclick="removeSlot(2)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
+              <div id="slot-status-2" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
+            </div>
+            <div id="slot-empty-2">
+              <div style="font-size:24px;">📸</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 2</strong><br>Pett. 27–52</div>
+            </div>
+          </div>
+          <!-- Slot 3 -->
+          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-3">
+            <input type="file" accept="image/*" onchange="handleSlotFile(event,3)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+            <div id="slot-preview-3" style="display:none;position:relative;">
+              <img id="slot-img-3" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
+              <button onclick="removeSlot(3)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
+              <div id="slot-status-3" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
+            </div>
+            <div id="slot-empty-3">
+              <div style="font-size:24px;">📸</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 3</strong><br>Pett. 53–78</div>
+            </div>
+          </div>
+          <!-- Slot 4 -->
+          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-4">
+            <input type="file" accept="image/*" onchange="handleSlotFile(event,4)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+            <div id="slot-preview-4" style="display:none;position:relative;">
+              <img id="slot-img-4" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
+              <button onclick="removeSlot(4)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
+              <div id="slot-status-4" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
+            </div>
+            <div id="slot-empty-4">
+              <div style="font-size:24px;">📸</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 4</strong><br>Pett. 79–100</div>
+            </div>
+          </div>
         </div>
-        <img id="judge-preview" class="img-preview" alt="Anteprima scheda">
-        <div style="text-align:center;margin-top:14px;">
+
+        <div style="text-align:center;">
           <button class="btn btn-primary" id="btn-run-ocr" onclick="runOCR()" style="display:none;">🔍 Avvia OCR con Gemini</button>
-          <div id="ocr-status" style="font-size:12px;color:var(--text-dim);margin-top:8px;"></div>
+          <div id="ocr-status" style="font-size:12px;color:var(--text-dim);margin-top:8px;min-height:18px;"></div>
         </div>
       </div>
 
@@ -1329,11 +1379,7 @@ function openJudgeModal(judgeId) {
   // Reset UI
   document.getElementById('judge-modal-step1').style.display = 'block';
   document.getElementById('judge-modal-step2').style.display = 'none';
-  document.getElementById('judge-preview').classList.remove('show');
-  document.getElementById('judge-preview').src = '';
-  document.getElementById('btn-run-ocr').style.display = 'none';
-  document.getElementById('ocr-status').textContent = '';
-  document.getElementById('judge-file-input').value = '';
+  resetSlots();
   document.getElementById('manual-pet').value = '';
   document.getElementById('manual-pts').value = '';
 
@@ -1378,22 +1424,24 @@ async function runOCR() {
     const mimeType = file.type || 'image/jpeg';
 
     const prompt = `Questa è una scheda di valutazione della gara di Nordic Walking "Miglio Rosso".
-Per ogni pettorale ci sono due righe affiancate:
-- Riga D (decine): caselle numerate 0-9 più casella rossa "100".
-- Riga U (unità): caselle numerate 0-9.
-- Casella gialla "CORR.": usata per correzioni.
+Struttura per ogni pettorale: due righe D e U, più una casella gialla CORR.
 
-Il giudice può aver indicato il numero scelto in uno di questi modi:
-a) BOLLINO o punto pieno che OSCURA il numero → il numero scelto è quello OSCURATO/COPERTO dal bollino
-b) Cerchio intorno al numero → il numero scelto è quello cerchiato
-c) Barra o X sopra il numero → il numero scelto è quello segnato
-d) Riga completamente barrata con linee orizzontali → riga annullata, usa CORR.
+RIGA D (decine): 11 caselle con numeri già stampati: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, e una rossa "100".
+RIGA U (unità): 10 caselle con numeri già stampati: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
+CASELLA CORR. (gialla): spazio per correzione scritta a mano.
 
-REGOLE DI LETTURA (in ordine di priorità):
-1. Casella gialla CORR. contiene un numero scritto a mano → usa QUELLO, ignora D e U.
-2. Casella rossa "100" ha un segno sopra → punteggio = 100.
-3. Altrimenti: trova il numero modificato in D e in U → punteggio = D*10 + U.
-4. Se non riesci a determinare il numero con certezza → ometti quel pettorale.
+COME LEGGERE — logica inversa:
+In ogni riga D e U, esattamente UNA casella ha il numero reso ILLEGGIBILE da un'area scura/nera (pennarello, bollino, macchia).
+Le ALTRE caselle hanno il numero ancora chiaramente leggibile e stampato.
+→ Il numero scelto dal giudice è quello della casella ILLEGGIBILE/OSCURATA.
+→ Se vedi 9 numeri leggibili e 1 illeggibile, quella è la risposta.
+
+PRIORITÀ DI LETTURA:
+1. Casella gialla CORR. ha un numero scritto a mano → usa QUELLO come punteggio intero, ignora D e U.
+2. Casella rossa "100" è oscurata o segnata → punteggio = 100.
+3. Altrimenti → punteggio = (cifra oscurata in D) × 10 + (cifra oscurata in U).
+4. Riga completamente barrata con linee → riga annullata, usa CORR.
+5. Se non riesci a identificare la casella oscurata con certezza → ometti quel pettorale.
 
 Restituisci SOLO un oggetto JSON valido: {"1": 71, "2": 64, "3": 72}
 Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
@@ -1420,28 +1468,40 @@ Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
       throw new Error(err.error?.message || `HTTP ${response.status}`);
     }
 
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
 
-    // Merge with existing pending
-    for (const [pet, pts] of Object.entries(parsed)) {
-      pendingScores[String(pet)] = Number(pts);
+      // Merge into pendingScores
+      for (const [pet, pts] of Object.entries(parsed)) {
+        pendingScores[String(pet)] = Number(pts);
+      }
+      totalRead += Object.keys(parsed).length;
+      document.getElementById(`slot-status-${slot}`).textContent = `✅ ${Object.keys(parsed).length} pettorali`;
+
+    } catch(e) {
+      console.error(`Slot ${slot} error:`, e);
+      errors.push(`Pag.${slot}: ${e.message}`);
+      document.getElementById(`slot-status-${slot}`).textContent = '❌ Errore';
     }
+  } // end for slots
 
-    showReviewStep(Object.keys(parsed).length);
-    status.textContent = '';
-    btn.disabled = false;
-    btn.innerHTML = '🔍 Avvia OCR con Gemini';
+  btn.disabled = false;
+  btn.innerHTML = '🔍 Avvia OCR con Gemini';
 
-  } catch(e) {
-    console.error(e);
-    status.textContent = `Errore OCR: ${e.message}`;
-    btn.disabled = false;
-    btn.innerHTML = '🔍 Riprova OCR';
-    toast('Errore OCR: ' + e.message, 'error');
+  if (totalRead === 0 && errors.length > 0) {
+    status.textContent = 'Errore: ' + errors.join(' | ');
+    toast('Errore OCR', 'error');
+    return;
   }
+
+  if (errors.length > 0) {
+    toast(`⚠️ ${errors.length} pagina/e con errori — controlla i risultati`, 'error');
+  }
+
+  showReviewStep(Object.keys(pendingScores).length);
+  status.textContent = errors.length > 0 ? `⚠️ ${errors.join(' | ')}` : '';
 }
 
 function fileToBase64(file) {
@@ -1491,6 +1551,24 @@ function removePending(pet) {
 function backToUpload() {
   document.getElementById('judge-modal-step1').style.display = 'block';
   document.getElementById('judge-modal-step2').style.display = 'none';
+}
+
+function resetSlots() {
+  slotFiles = {};
+  for (let s=1; s<=4; s++) {
+    const ep = document.getElementById(`slot-empty-${s}`);
+    const pp = document.getElementById(`slot-preview-${s}`);
+    const si = document.getElementById(`slot-img-${s}`);
+    const ss = document.getElementById(`slot-status-${s}`);
+    if (ep) ep.style.display = 'block';
+    if (pp) pp.style.display = 'none';
+    if (si) si.src = '';
+    if (ss) ss.textContent = '';
+  }
+  const btn = document.getElementById('btn-run-ocr');
+  if (btn) btn.style.display = 'none';
+  const st = document.getElementById('ocr-status');
+  if (st) st.textContent = '';
 }
 
 function addManualEntry() {
