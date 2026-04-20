@@ -1404,26 +1404,23 @@ async function runOCR() {
   let totalRead = 0, errors = [];
 
   const prompt = `Questa è una scheda di valutazione della gara di Nordic Walking "Miglio Rosso".
-Struttura per ogni pettorale: due righe D e U, più una casella gialla CORR.
+Per ogni pettorale ci sono 3 caselle vuote da compilare a mano + una casella gialla CORR.:
+- C = centinaia (di solito 0, vale 1 solo per punteggio 100)
+- D = decine (cifra delle decine, 0-9)
+- U = unità (cifra delle unità, 0-9)
+- CORR. = casella gialla per correzioni
 
-RIGA D (decine): 11 caselle con numeri già stampati: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, e una rossa "100".
-RIGA U (unità): 10 caselle con numeri già stampati: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
-CASELLA CORR. (gialla): spazio per correzione scritta a mano.
-
-COME LEGGERE — logica inversa:
-In ogni riga D e U, esattamente UNA casella ha il numero reso ILLEGGIBILE da un'area scura/nera (pennarello, bollino, macchia).
-Le ALTRE caselle hanno il numero ancora chiaramente leggibile e stampato.
-→ Il numero scelto dal giudice è quello della casella ILLEGGIBILE/OSCURATA.
-→ Se vedi 9 numeri leggibili e 1 illeggibile, quella è la risposta.
+COME CALCOLARE IL PUNTEGGIO:
+punteggio = C×100 + D×10 + U
+Esempi: C=0 D=8 U=4 → 84 | C=0 D=7 U=0 → 70 | C=1 D=0 U=0 → 100
 
 PRIORITÀ DI LETTURA:
-1. Casella gialla CORR. ha un numero scritto a mano → usa QUELLO come punteggio intero, ignora D e U.
-2. Casella rossa "100" è oscurata o segnata → punteggio = 100.
-3. Altrimenti → punteggio = (cifra oscurata in D) × 10 + (cifra oscurata in U).
-4. Riga completamente barrata con linee → riga annullata, usa CORR.
-5. Se non riesci a identificare la casella oscurata con certezza → ometti quel pettorale.
+1. Casella gialla CORR. contiene un numero scritto → usa QUELLO come punteggio finale intero, ignora C/D/U.
+2. Se una casella C/D/U è barrata → usa il valore scritto accanto o in CORR.
+3. Altrimenti leggi le cifre scritte a mano in C, D, U e calcola C×100 + D×10 + U.
+4. Se una cifra è illeggibile con certezza → ometti quel pettorale.
 
-Restituisci SOLO un oggetto JSON valido: {"1": 71, "2": 64, "3": 72}
+Restituisci SOLO un oggetto JSON valido: {"1": 84, "2": 70, "3": 100}
 Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
 
   for (const slot of loadedSlots) {
