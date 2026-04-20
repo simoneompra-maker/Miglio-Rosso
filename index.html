@@ -1377,13 +1377,21 @@ async function runOCR() {
     const base64 = await fileToBase64(file);
     const mimeType = file.type || 'image/jpeg';
 
-    const prompt = `Questa è una scheda di valutazione di una gara di Nordic Walking "Miglio Rosso".
-La scheda contiene colonne "N°" (numero pettorale) e "Punti" (punteggio da 0 a 100).
-I valori sono scritti a mano.
-Leggi TUTTE le coppie pettorale→punteggio presenti nella scheda.
+    const prompt = `Questa è una scheda di valutazione della gara di Nordic Walking "Miglio Rosso".
+Per ogni pettorale ci sono due righe affiancate:
+- Riga D (decine): caselle numerate da 0 a 9, più una casella rossa "100". Il giudice ha cerchiato o barrato un numero.
+- Riga U (unità): caselle numerate da 0 a 9. Il giudice ha cerchiato o barrato un numero.
+- Casella gialla "CORR.": se il giudice ha sbagliato, ha barrato la riga D o U e scritto il numero corretto nella casella gialla CORR.
+
+REGOLE DI LETTURA (in ordine di priorità):
+1. Se la casella gialla CORR. contiene un numero scritto a mano → usa QUEL numero come punteggio finale, ignora D e U.
+2. Se la casella rossa "100" è barrata o cerchiata → il punteggio è 100.
+3. Altrimenti leggi il numero barrato/cerchiato in D e il numero barrato/cerchiato in U → punteggio = D*10 + U.
+4. Se una riga è completamente barrata con linee orizzontali → quella riga è annullata, usa la casella CORR.
+5. Se il punteggio non è leggibile con certezza → ometti quel pettorale.
+
 Restituisci SOLO un oggetto JSON valido nel formato: {"1": 71, "2": 64, "3": 72}
-Includi solo le righe che hanno un punteggio chiaramente scritto.
-Ignora le righe vuote o con valori illeggibili.
+Includi solo i pettorali con punteggio leggibile con certezza.
 Non scrivere nulla prima o dopo il JSON. Nessun testo, nessun backtick, nessun markdown.`;
 
     const response = await fetch(
