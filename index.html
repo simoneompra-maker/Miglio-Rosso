@@ -1393,37 +1393,17 @@ function openJudgeModal(judgeId) {
   document.getElementById('modal-judge').classList.add('open');
 }
 
-function handleJudgeFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const preview = document.getElementById('judge-preview');
-    preview.src = e.target.result;
-    preview.classList.add('show');
-    document.getElementById('btn-run-ocr').style.display = 'inline-flex';
-    document.getElementById('ocr-status').textContent = 'Immagine pronta per l\'OCR';
-  };
-  reader.readAsDataURL(file);
-}
-
 async function runOCR() {
   if (!state.apiKey) return toast('Configura prima la chiave API Gemini nelle impostazioni', 'error');
-
-  const file = document.getElementById('judge-file-input').files[0];
-  if (!file) return toast('Carica prima la foto della scheda', 'error');
+  const loadedSlots = Object.keys(slotFiles).map(Number).sort((a,b)=>a-b);
+  if (loadedSlots.length === 0) return toast('Carica almeno una foto della scheda', 'error');
 
   const btn = document.getElementById('btn-run-ocr');
   const status = document.getElementById('ocr-status');
   btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Analisi in corso…';
-  status.textContent = 'Gemini sta leggendo la scheda…';
+  let totalRead = 0, errors = [];
 
-  try {
-    const base64 = await fileToBase64(file);
-    const mimeType = file.type || 'image/jpeg';
-
-    const prompt = `Questa è una scheda di valutazione della gara di Nordic Walking "Miglio Rosso".
+  const prompt = `Questa è una scheda di valutazione della gara di Nordic Walking "Miglio Rosso".
 Struttura per ogni pettorale: due righe D e U, più una casella gialla CORR.
 
 RIGA D (decine): 11 caselle con numeri già stampati: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, e una rossa "100".
@@ -1446,34 +1426,38 @@ PRIORITÀ DI LETTURA:
 Restituisci SOLO un oggetto JSON valido: {"1": 71, "2": 64, "3": 72}
 Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: mimeType, data: base64 } }
-            ]
-          }],
-          generationConfig: { temperature: 0.1 }
-        })
-      }
-    );
+  for (const slot of loadedSlots) {
+    const file = slotFiles[slot];
+    btn.innerHTML = `<div class="spinner"></div> Pagina ${slot}/${loadedSlots.length}…`;
+    status.textContent = `Analisi pagina ${slot} di ${loadedSlots.length}…`;
+    document.getElementById(`slot-status-${slot}`).textContent = '⏳ Analisi…';
 
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
-    }
+    try {
+      const base64 = await fileToBase64(file);
+      const mimeType = file.type || 'image/jpeg';
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
+            generationConfig: { temperature: 0.1 }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || `HTTP ${response.status}`);
+      }
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const clean = text.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
 
-      // Merge into pendingScores
       for (const [pet, pts] of Object.entries(parsed)) {
         pendingScores[String(pet)] = Number(pts);
       }
@@ -1481,11 +1465,11 @@ Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
       document.getElementById(`slot-status-${slot}`).textContent = `✅ ${Object.keys(parsed).length} pettorali`;
 
     } catch(e) {
-      console.error(`Slot ${slot} error:`, e);
+      console.error(`Slot ${slot}:`, e);
       errors.push(`Pag.${slot}: ${e.message}`);
       document.getElementById(`slot-status-${slot}`).textContent = '❌ Errore';
     }
-  } // end for slots
+  }
 
   btn.disabled = false;
   btn.innerHTML = '🔍 Avvia OCR con Gemini';
@@ -1495,10 +1479,7 @@ Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
     toast('Errore OCR', 'error');
     return;
   }
-
-  if (errors.length > 0) {
-    toast(`⚠️ ${errors.length} pagina/e con errori — controlla i risultati`, 'error');
-  }
+  if (errors.length > 0) toast(`⚠️ ${errors.length} pagina/e con errori`, 'error');
 
   showReviewStep(Object.keys(pendingScores).length);
   status.textContent = errors.length > 0 ? `⚠️ ${errors.join(' | ')}` : '';
