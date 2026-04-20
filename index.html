@@ -1393,6 +1393,36 @@ function openJudgeModal(judgeId) {
   document.getElementById('modal-judge').classList.add('open');
 }
 
+// slotFiles: {1: File, 2: File, 3: File, 4: File}
+let slotFiles = {};
+
+function handleSlotFile(event, slot) {
+  const file = event.target.files[0];
+  if (!file) return;
+  slotFiles[slot] = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('slot-empty-' + slot).style.display = 'none';
+    document.getElementById('slot-preview-' + slot).style.display = 'block';
+    document.getElementById('slot-img-' + slot).src = e.target.result;
+    document.getElementById('slot-status-' + slot).textContent = 'Pronta';
+    document.getElementById('btn-run-ocr').style.display = 'inline-flex';
+    document.getElementById('ocr-status').textContent = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeSlot(slot) {
+  delete slotFiles[slot];
+  document.getElementById('slot-empty-' + slot).style.display = 'block';
+  document.getElementById('slot-preview-' + slot).style.display = 'none';
+  document.getElementById('slot-img-' + slot).src = '';
+  document.getElementById('slot-status-' + slot).textContent = '';
+  if (Object.keys(slotFiles).length === 0) {
+    document.getElementById('btn-run-ocr').style.display = 'none';
+  }
+}
+
 async function runOCR() {
   if (!state.apiKey) return toast('Configura prima la chiave API Gemini nelle impostazioni', 'error');
   const loadedSlots = Object.keys(slotFiles).map(Number).sort((a,b)=>a-b);
