@@ -1403,25 +1403,22 @@ async function runOCR() {
   btn.disabled = true;
   let totalRead = 0, errors = [];
 
-  const prompt = `Questa è una scheda di valutazione della gara di Nordic Walking "Miglio Rosso".
-Per ogni pettorale ci sono 3 caselle vuote da compilare a mano + una casella gialla CORR.:
-- C = centinaia (di solito 0, vale 1 solo per punteggio 100)
-- D = decine (cifra delle decine, 0-9)
-- U = unità (cifra delle unità, 0-9)
-- CORR. = casella gialla per correzioni
-
-COME CALCOLARE IL PUNTEGGIO:
-punteggio = C×100 + D×10 + U
-Esempi: C=0 D=8 U=4 → 84 | C=0 D=7 U=0 → 70 | C=1 D=0 U=0 → 100
-
-PRIORITÀ DI LETTURA:
-1. Casella gialla CORR. contiene un numero scritto → usa QUELLO come punteggio finale intero, ignora C/D/U.
-2. Se una casella C/D/U è barrata → usa il valore scritto accanto o in CORR.
-3. Altrimenti leggi le cifre scritte a mano in C, D, U e calcola C×100 + D×10 + U.
-4. Se una cifra è illeggibile con certezza → ometti quel pettorale.
-
-Restituisci SOLO un oggetto JSON valido: {"1": 84, "2": 70, "3": 100}
-Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
+  const prompt = "Questa e\' una scheda di valutazione della gara di Nordic Walking Miglio Rosso.\n" +
+    "Per ogni pettorale ci sono 3 caselle vuote da compilare a mano + una casella gialla CORR.:\n" +
+    "- C = centinaia (di solito 0, vale 1 solo per punteggio 100)\n" +
+    "- D = decine (cifra delle decine, 0-9)\n" +
+    "- U = unita\' (cifra delle unita\', 0-9)\n" +
+    "- CORR. = casella gialla per correzioni\n\n" +
+    "COME CALCOLARE IL PUNTEGGIO:\n" +
+    "punteggio = C*100 + D*10 + U\n" +
+    "Esempi: C=0 D=8 U=4 -> 84 | C=0 D=7 U=0 -> 70 | C=1 D=0 U=0 -> 100\n\n" +
+    "PRIORITA\' DI LETTURA:\n" +
+    "1. Casella gialla CORR. contiene un numero scritto -> usa QUELLO come punteggio finale intero, ignora C/D/U.\n" +
+    "2. Se una casella C/D/U e\' barrata -> usa il valore scritto accanto o in CORR.\n" +
+    "3. Altrimenti leggi le cifre scritte a mano in C, D, U e calcola C*100 + D*10 + U.\n" +
+    "4. Se una cifra e\' illeggibile con certezza -> ometti quel pettorale.\n\n" +
+    "Restituisci SOLO un oggetto JSON valido: {\"1\": 84, \"2\": 70, \"3\": 100}\n" +
+    "Nessun testo prima o dopo. Nessun backtick. Nessun markdown.";
 
   for (const slot of loadedSlots) {
     const file = slotFiles[slot];
