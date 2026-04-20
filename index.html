@@ -1379,20 +1379,24 @@ async function runOCR() {
 
     const prompt = `Questa è una scheda di valutazione della gara di Nordic Walking "Miglio Rosso".
 Per ogni pettorale ci sono due righe affiancate:
-- Riga D (decine): caselle numerate da 0 a 9, più una casella rossa "100". Il giudice ha cerchiato o barrato un numero.
-- Riga U (unità): caselle numerate da 0 a 9. Il giudice ha cerchiato o barrato un numero.
-- Casella gialla "CORR.": se il giudice ha sbagliato, ha barrato la riga D o U e scritto il numero corretto nella casella gialla CORR.
+- Riga D (decine): caselle numerate 0-9 più casella rossa "100".
+- Riga U (unità): caselle numerate 0-9.
+- Casella gialla "CORR.": usata per correzioni.
+
+Il giudice può aver indicato il numero scelto in uno di questi modi:
+a) BOLLINO o punto pieno che OSCURA il numero → il numero scelto è quello OSCURATO/COPERTO dal bollino
+b) Cerchio intorno al numero → il numero scelto è quello cerchiato
+c) Barra o X sopra il numero → il numero scelto è quello segnato
+d) Riga completamente barrata con linee orizzontali → riga annullata, usa CORR.
 
 REGOLE DI LETTURA (in ordine di priorità):
-1. Se la casella gialla CORR. contiene un numero scritto a mano → usa QUEL numero come punteggio finale, ignora D e U.
-2. Se la casella rossa "100" è barrata o cerchiata → il punteggio è 100.
-3. Altrimenti leggi il numero barrato/cerchiato in D e il numero barrato/cerchiato in U → punteggio = D*10 + U.
-4. Se una riga è completamente barrata con linee orizzontali → quella riga è annullata, usa la casella CORR.
-5. Se il punteggio non è leggibile con certezza → ometti quel pettorale.
+1. Casella gialla CORR. contiene un numero scritto a mano → usa QUELLO, ignora D e U.
+2. Casella rossa "100" ha un segno sopra → punteggio = 100.
+3. Altrimenti: trova il numero modificato in D e in U → punteggio = D*10 + U.
+4. Se non riesci a determinare il numero con certezza → ometti quel pettorale.
 
-Restituisci SOLO un oggetto JSON valido nel formato: {"1": 71, "2": 64, "3": 72}
-Includi solo i pettorali con punteggio leggibile con certezza.
-Non scrivere nulla prima o dopo il JSON. Nessun testo, nessun backtick, nessun markdown.`;
+Restituisci SOLO un oggetto JSON valido: {"1": 71, "2": 64, "3": 72}
+Nessun testo prima o dopo. Nessun backtick. Nessun markdown.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`,
