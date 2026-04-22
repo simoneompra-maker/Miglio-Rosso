@@ -792,7 +792,7 @@ tbody td {
         </p>
 
         <!-- Slot 4 foto -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;" id="photo-slots">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;" id="photo-slots">
           <!-- Slot 1 -->
           <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-1">
             <input type="file" accept="image/*" onchange="handleSlotFile(event,1)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
@@ -803,7 +803,7 @@ tbody td {
             </div>
             <div id="slot-empty-1">
               <div style="font-size:24px;">📸</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 1</strong><br>Pett. 1–26</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 1</strong><br>Pett. 1–50</div>
             </div>
           </div>
           <!-- Slot 2 -->
@@ -816,7 +816,7 @@ tbody td {
             </div>
             <div id="slot-empty-2">
               <div style="font-size:24px;">📸</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 2</strong><br>Pett. 27–52</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 2</strong><br>Pett. 51–100</div>
             </div>
           </div>
           <!-- Slot 3 -->
@@ -829,20 +829,7 @@ tbody td {
             </div>
             <div id="slot-empty-3">
               <div style="font-size:24px;">📸</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 3</strong><br>Pett. 53–78</div>
-            </div>
-          </div>
-          <!-- Slot 4 -->
-          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-4">
-            <input type="file" accept="image/*" onchange="handleSlotFile(event,4)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
-            <div id="slot-preview-4" style="display:none;position:relative;">
-              <img id="slot-img-4" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
-              <button onclick="removeSlot(4)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
-              <div id="slot-status-4" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
-            </div>
-            <div id="slot-empty-4">
-              <div style="font-size:24px;">📸</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 4</strong><br>Pett. 79–100</div>
+              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 3</strong><br>Pett. 101–150</div>
             </div>
           </div>
         </div>
@@ -1433,20 +1420,25 @@ async function runOCR() {
   btn.disabled = true;
   let totalRead = 0, errors = [];
 
-  const prompt = "Questa e\' una scheda di valutazione della gara di Nordic Walking Miglio Rosso.\n" +
-    "Per ogni pettorale ci sono 3 caselle vuote da compilare a mano + una casella gialla CORR.:\n" +
-    "- C = centinaia (di solito 0, vale 1 solo per punteggio 100)\n" +
-    "- D = decine (cifra delle decine, 0-9)\n" +
-    "- U = unita\' (cifra delle unita\', 0-9)\n" +
-    "- CORR. = casella gialla per correzioni\n\n" +
-    "COME CALCOLARE IL PUNTEGGIO:\n" +
-    "punteggio = C*100 + D*10 + U\n" +
-    "Esempi: C=0 D=8 U=4 -> 84 | C=0 D=7 U=0 -> 70 | C=1 D=0 U=0 -> 100\n\n" +
-    "PRIORITA\' DI LETTURA:\n" +
-    "1. Casella gialla CORR. contiene un numero scritto -> usa QUELLO come punteggio finale intero, ignora C/D/U.\n" +
-    "2. Se una casella C/D/U e\' barrata -> usa il valore scritto accanto o in CORR.\n" +
-    "3. Altrimenti leggi le cifre scritte a mano in C, D, U e calcola C*100 + D*10 + U.\n" +
-    "4. Se una cifra e\' illeggibile con certezza -> ometti quel pettorale.\n\n" +
+  const prompt = "Questa e una scheda di valutazione della gara di Nordic Walking Miglio Rosso.\n" +
+    "Per ogni pettorale ci sono 3 caselle C/D/U + una casella gialla CORR.\n" +
+    "C = centinaia (0 oppure 1 solo per punteggio 100)\n" +
+    "D = decine (0-9), U = unita (0-9)\n" +
+    "punteggio = C*100 + D*10 + U\n\n" +
+    "REGOLE DI LETTURA (in ordine di priorita):\n" +
+    "1. Riga tutta barrata E nessun numero scritto da nessuna parte sulla riga -> atleta ASSENTE, OMETTI.\n" +
+    "2. Riga tutta barrata MA c'e un numero scritto a mano sulla riga (dentro o fuori dalle caselle) -> usa QUEL numero come punteggio intero (il giudice ha corretto dopo aver barrato).\n" +
+    "3. Casella CORR. o numero scritto a mano sulla riga -> usa QUEL numero come punteggio intero, ignora C/D/U.\n" +
+    "4. Caselle C/D/U barrate singolarmente ma CORR. compilata -> usa il valore in CORR.\n" +
+    "5. Altrimenti leggi le cifre in C, D, U e calcola C*100 + D*10 + U.\n" +
+    "6. Riga completamente vuota -> atleta assente, OMETTI.\n" +
+    "7. Cifra illeggibile con certezza -> OMETTI il pettorale.\n\n" +
+    "Esempi:\n" +
+    "C=0 D=8 U=4 -> 84\n" +
+    "C=1 D=0 U=0 -> 100\n" +
+    "Riga barrata + nessun numero -> ometti (assente)\n" +
+    "Riga barrata + numero 76 scritto a fianco -> punteggio 76\n" +
+    "CORR. = 83 -> punteggio 83\n\n" +
     "Restituisci SOLO un oggetto JSON valido: {\"1\": 84, \"2\": 70, \"3\": 100}\n" +
     "Nessun testo prima o dopo. Nessun backtick. Nessun markdown.";
 
@@ -1560,7 +1552,7 @@ function backToUpload() {
 
 function resetSlots() {
   slotFiles = {};
-  for (let s=1; s<=4; s++) {
+  for (let s=1; s<=3; s++) {
     const ep = document.getElementById(`slot-empty-${s}`);
     const pp = document.getElementById(`slot-preview-${s}`);
     const si = document.getElementById(`slot-img-${s}`);
@@ -1650,7 +1642,7 @@ function renderClassifiche() {
 }
 
 function renderClassCam() {
-  const athletes = state.athletes.filter(a => a.cat === 'C').sort(compareAthletes);
+  const athletes = state.athletes.filter(a => a.cat === 'C' && getVoteCount(a.pettorale) > 0).sort(compareAthletes);
   const tbody = document.getElementById('tbody-cam');
   if (!tbody) return;
 
@@ -1690,7 +1682,7 @@ function renderClassCam() {
 }
 
 function renderClassIst() {
-  const athletes = state.athletes.filter(a => a.cat === 'I').sort(compareAthletes);
+  const athletes = state.athletes.filter(a => a.cat === 'I' && getVoteCount(a.pettorale) > 0).sort(compareAthletes);
   const tbody = document.getElementById('tbody-ist');
   if (!tbody) return;
 
@@ -1742,11 +1734,11 @@ function renderClassSqu() {
 
   const squadre = [];
   for (const [asd, data] of Object.entries(asdMap)) {
-    const sortedIst = [...data.istruttori].sort(compareAthletes);
+    const sortedIst = [...data.istruttori].filter(a => getVoteCount(a.pettorale) > 0).sort(compareAthletes);
     const bestIst = sortedIst[0];
     const istScore = bestIst ? getTotal(bestIst.pettorale) : 0;
 
-    const sortedCam = [...data.camminatori].sort(compareAthletes);
+    const sortedCam = [...data.camminatori].filter(a => getVoteCount(a.pettorale) > 0).sort(compareAthletes);
     const top4 = sortedCam.slice(0, 4);
     const camScore = top4.reduce((s,a) => s + getTotal(a.pettorale), 0);
 
