@@ -1641,8 +1641,10 @@ function buildAsdMap() {
 
 function renderFeedbackASD() {
   const container = document.getElementById('feedback-asd-list');
-  if (!container) return;
+  console.log('[Feedback] container:', container, 'athletes:', state.athletes?.length, 'scores keys:', Object.keys(state.scores||{}).length);
+  if (!container) { console.warn('[Feedback] container non trovato'); return; }
   const asdMap = buildAsdMap();
+  console.log('[Feedback] asdMap:', asdMap, 'ASD count:', Object.keys(asdMap).length);
   if (!Object.keys(asdMap).length) {
     container.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Nessun dato disponibile</p></div>';
     return;
