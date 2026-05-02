@@ -680,6 +680,23 @@ tbody td {
       </div>
     </div>
   </div>
+
+  <!-- Feedback ASD -->
+  <div class="tab-content" id="class-feedback">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📋 FEEDBACK TECNICO PER ASD</span>
+        <span class="tiebreak-note">Basato sulla media personale dei 5 criteri anonimi</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <span style="font-size:12px;color:var(--text-dim);">ℹ️ Criteri: Allineamento · Luce e spinta · Eleganza · Polso e mano · Passo e rullata</span>
+        <button class="btn btn-sm" onclick="exportAllFeedbackPDF()" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+          📄 Esporta tutti i PDF
+        </button>
+      </div>
+      <div id="feedback-asd-list"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -725,22 +742,6 @@ tbody td {
         <button class="btn btn-danger" onclick="resetScores()">🗑 Elimina tutti i punteggi</button>
         <button class="btn btn-danger" onclick="resetAll()">⚠️ Reset completo edizione</button>
       </div>
-    </div>
-  </div>
-  <!-- Feedback ASD -->
-  <div class="tab-content" id="class-feedback">
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">📋 FEEDBACK TECNICO PER ASD</span>
-        <span class="tiebreak-note">Basato sulla media personale dei 5 criteri anonimi</span>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <span style="font-size:12px;color:var(--text-dim);">ℹ️ Criteri: Allineamento · Luce e spinta · Eleganza · Polso e mano · Passo e rullata</span>
-        <button class="btn btn-sm" onclick="exportAllFeedbackPDF()" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
-          📄 Esporta tutti i PDF
-        </button>
-      </div>
-      <div id="feedback-asd-list"></div>
     </div>
   </div>
 
@@ -1641,10 +1642,8 @@ function buildAsdMap() {
 
 function renderFeedbackASD() {
   const container = document.getElementById('feedback-asd-list');
-  console.log('[Feedback] container:', container, 'athletes:', state.athletes?.length, 'scores keys:', Object.keys(state.scores||{}).length);
-  if (!container) { console.warn('[Feedback] container non trovato'); return; }
+  if (!container) return;
   const asdMap = buildAsdMap();
-  console.log('[Feedback] asdMap:', asdMap, 'ASD count:', Object.keys(asdMap).length);
   if (!Object.keys(asdMap).length) {
     container.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Nessun dato disponibile</p></div>';
     return;
