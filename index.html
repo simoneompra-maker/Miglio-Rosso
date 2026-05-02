@@ -2054,6 +2054,7 @@ function importScoresXLSX(event) {
 
       saveState();
       renderAtleti();
+      renderClassifiche();
       toast(`✅ Punteggi importati: ${imported} atleti${skipped ? ', ' + skipped + ' saltati' : ''}`);
     } catch(err) {
       toast('Errore: ' + err.message, 'error');
