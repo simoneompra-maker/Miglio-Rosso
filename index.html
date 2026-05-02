@@ -178,19 +178,20 @@ select option { background: #fff; color: var(--text); }
 .btn-green:hover { background: #d5efdf; }
 
 /* ── TABLE ── */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
+.table-wrap { overflow-x: auto; border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; table-layout: auto; }
 thead th {
   background: var(--red);
-  padding: 11px 12px;
+  padding: 10px 8px;
   text-align: left;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   color: #fff;
   white-space: nowrap;
 }
+thead th.td-center { text-align: center; }
 thead th:first-child { border-radius: 6px 0 0 0; }
 thead th:last-child { border-radius: 0 6px 0 0; }
 tbody tr {
@@ -200,13 +201,14 @@ tbody tr {
 tbody tr:nth-child(even) { background: var(--surface2); }
 tbody tr:hover { background: rgba(192,57,43,0.05); }
 tbody td {
-  padding: 10px 12px;
+  padding: 9px 8px;
   font-size: 13px;
   color: var(--text);
+  white-space: nowrap;
 }
 .td-center { text-align: center; }
 .td-right { text-align: right; }
-.td-mono { font-variant-numeric: tabular-nums; }
+.td-mono { font-variant-numeric: tabular-nums; font-family: 'Courier New', monospace; }
 
 /* ── RANKING BADGE ── */
 .rank-badge {
@@ -407,6 +409,8 @@ tbody td {
 
 /* ── PRINT ── */
 @media print {
+  .judge-col { display: none !important; }
+
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #fff; color: #000; font-family: Arial, sans-serif; }
   nav, .no-print { display: none !important; }
@@ -1818,13 +1822,14 @@ function renderClassCam() {
   const tbody = document.getElementById('tbody-cam');
   if (!tbody) return;
 
-  // Judge header columns
-  const thJudges = document.getElementById('th-cam-judges');
-  if (thJudges) {
-    thJudges.innerHTML = Array.from({length:10}, (_,i) => {
-      const j = state.judges[i];
-      return `<th class="td-center" style="font-size:10px;">G${i+1}<br><span style="font-weight:400;color:var(--text-muted);font-size:9px;">${j?.criterion?.substring(0,8)||''}</span></th>`;
-    }).join('');
+  // Judge header columns — rebuild entire thead row
+  const tblCam = tbody?.closest('table');
+  if (tblCam) {
+    const judgeHeaders = Array.from({length:10}, (_,i) =>
+      `<th class="td-center judge-col" style="font-size:11px;min-width:36px;padding:8px 4px;">G${i+1}</th>`
+    ).join('');
+    tblCam.querySelector('thead tr').innerHTML =
+      `<th style="width:48px;">POS</th><th style="width:44px;">Pett.</th><th>Nominativo</th><th>ASD</th>${judgeHeaders}<th class="td-right" style="width:60px;">Totale</th>`;
   }
 
   if (athletes.length === 0) {
@@ -1838,7 +1843,7 @@ function renderClassCam() {
     const pos = i+1;
     const badge = pos<=3 ? `<span class="rank-badge rank-${pos}">${pos}</span>` : `<span class="rank-badge rank-n">${pos}</span>`;
     const judgesCells = Array.from({length:10}, (_,j) =>
-      `<td class="td-center td-mono" style="font-size:12px;color:var(--text-dim);">${scores[j+1]!==undefined?scores[j+1]:'—'}</td>`
+      `<td class="td-center td-mono judge-col" style="font-size:12px;color:var(--text-dim);">${scores[j+1]!==undefined?scores[j+1]:'—'}</td>`
     ).join('');
     return `<tr>
       <td class="td-center">${badge}</td>
@@ -1856,12 +1861,13 @@ function renderClassIst() {
   const tbody = document.getElementById('tbody-ist');
   if (!tbody) return;
 
-  const thJudges = document.getElementById('th-ist-judges');
-  if (thJudges) {
-    thJudges.innerHTML = Array.from({length:10}, (_,i) => {
-      const j = state.judges[i];
-      return `<th class="td-center" style="font-size:10px;">G${i+1}<br><span style="font-weight:400;color:var(--text-muted);font-size:9px;">${j?.criterion?.substring(0,8)||''}</span></th>`;
-    }).join('');
+  const tblIst = tbody?.closest('table');
+  if (tblIst) {
+    const judgeHeaders = Array.from({length:10}, (_,i) =>
+      `<th class="td-center judge-col" style="font-size:11px;min-width:36px;padding:8px 4px;">G${i+1}</th>`
+    ).join('');
+    tblIst.querySelector('thead tr').innerHTML =
+      `<th style="width:48px;">POS</th><th style="width:44px;">Pett.</th><th>Nominativo</th><th>ASD</th>${judgeHeaders}<th class="td-right" style="width:60px;">Totale</th>`;
   }
 
   if (athletes.length === 0) {
@@ -1875,7 +1881,7 @@ function renderClassIst() {
     const pos = i+1;
     const badge = pos<=3 ? `<span class="rank-badge rank-${pos}">${pos}</span>` : `<span class="rank-badge rank-n">${pos}</span>`;
     const judgesCells = Array.from({length:10}, (_,j) =>
-      `<td class="td-center td-mono" style="font-size:12px;color:var(--text-dim);">${scores[j+1]!==undefined?scores[j+1]:'—'}</td>`
+      `<td class="td-center td-mono judge-col" style="font-size:12px;color:var(--text-dim);">${scores[j+1]!==undefined?scores[j+1]:'—'}</td>`
     ).join('');
     return `<tr>
       <td class="td-center">${badge}</td>
