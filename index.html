@@ -515,10 +515,6 @@ tbody td {
     </button>
   </div>
   <div class="nav-actions" style="display:flex;align-items:center;gap:8px;">
-    <div id="autosave-indicator" style="font-size:11px;color:rgba(255,255,255,0.6);white-space:nowrap;display:none;">
-      <span id="autosave-text">✓ Salvato</span>
-    </div>
-    <button class="btn-icon" onclick="exportJSON()" title="Backup JSON">💾</button>
     <button class="btn-icon" onclick="openSettings()" title="Configurazione">⚙️</button>
   </div>
 </nav>
@@ -605,6 +601,7 @@ tbody td {
     <button class="tab-btn active" onclick="showClassTab('camminatori')">🚶 Camminatori</button>
     <button class="tab-btn" onclick="showClassTab('istruttori')">👨‍🏫 Istruttori</button>
     <button class="tab-btn" onclick="showClassTab('squadre')">🏟️ Squadre</button>
+    <button class="tab-btn" onclick="showClassTab('feedback')">📋 Feedback ASD</button>
   </div>
 
   <!-- Camminatori -->
@@ -617,7 +614,7 @@ tbody td {
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
         <div class="card-title" style="margin:0;">CLASSIFICA CAMMINATORI</div>
-        <span class="tiebreak-note">⚖️ Spareggio: totale senza voto min → voto Giudice 1</span>
+        <span class="tiebreak-note">⚖️ Spareggio: G3+G7+G10 → G2+G6 → G9 → G8 → G1 → G5 → G4</span>
       </div>
       <div class="table-wrap">
         <table>
@@ -642,7 +639,7 @@ tbody td {
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
         <div class="card-title" style="margin:0;">CLASSIFICA ISTRUTTORI</div>
-        <span class="tiebreak-note">⚖️ Spareggio: totale senza voto min → voto Giudice 1</span>
+        <span class="tiebreak-note">⚖️ Spareggio: G3+G7+G10 → G2+G6 → G9 → G8 → G1 → G5 → G4</span>
       </div>
       <div class="table-wrap">
         <table>
@@ -672,7 +669,7 @@ tbody td {
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>POS</th><th>Squadra (ASD)</th><th class="td-right">Best Istruttore</th><th class="td-right">Top 4 Camm.</th><th class="td-right">Totale Squadra</th>
+            <th>POS</th><th>Squadra (ASD) — Componenti</th><th class="td-right">Ist.</th><th class="td-right">Camm.</th><th class="td-right">Totale</th>
           </tr></thead>
           <tbody id="tbody-squ"></tbody>
         </table>
@@ -726,6 +723,23 @@ tbody td {
       </div>
     </div>
   </div>
+  <!-- Feedback ASD -->
+  <div class="tab-content" id="class-feedback">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📋 FEEDBACK TECNICO PER ASD</span>
+        <span class="tiebreak-note">Basato sulla media personale dei 5 criteri anonimi</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <span style="font-size:12px;color:var(--text-dim);">ℹ️ Criteri: Allineamento · Luce e spinta · Eleganza · Polso e mano · Passo e rullata</span>
+        <button class="btn btn-sm" onclick="exportAllFeedbackPDF()" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+          📄 Esporta tutti i PDF
+        </button>
+      </div>
+      <div id="feedback-asd-list"></div>
+    </div>
+  </div>
+
 </div>
 
 </main><!-- end main -->
@@ -793,45 +807,17 @@ tbody td {
 
         <!-- Slot 4 foto -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;" id="photo-slots">
-          <!-- Slot 1 -->
-          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-1">
-            <input type="file" accept="image/*" onchange="handleSlotFile(event,1)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
-            <div id="slot-preview-1" style="display:none;position:relative;">
-              <img id="slot-img-1" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
-              <button onclick="removeSlot(1)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
-              <div id="slot-status-1" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
-            </div>
-            <div id="slot-empty-1">
-              <div style="font-size:24px;">📸</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 1</strong><br>Pett. 1–50</div>
-            </div>
+          <!-- Multi-file upload zone -->
+          <div class="upload-zone" style="padding:20px;position:relative;" id="multi-upload-zone">
+            <input type="file" accept="image/*" multiple id="multi-file-input"
+              style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"
+              onchange="handleMultiFiles(event)">
+            <div class="upload-icon">📸</div>
+            <div class="upload-text"><strong>Tocca o trascina</strong> le foto della scheda</div>
+            <div class="upload-text" style="margin-top:4px;font-size:11px;">Seleziona più file insieme (Pag.1, Pag.2, Pag.3)</div>
           </div>
-          <!-- Slot 2 -->
-          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-2">
-            <input type="file" accept="image/*" onchange="handleSlotFile(event,2)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
-            <div id="slot-preview-2" style="display:none;position:relative;">
-              <img id="slot-img-2" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
-              <button onclick="removeSlot(2)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
-              <div id="slot-status-2" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
-            </div>
-            <div id="slot-empty-2">
-              <div style="font-size:24px;">📸</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 2</strong><br>Pett. 51–100</div>
-            </div>
-          </div>
-          <!-- Slot 3 -->
-          <div class="upload-zone" style="padding:16px;position:relative;" id="slot-zone-3">
-            <input type="file" accept="image/*" onchange="handleSlotFile(event,3)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
-            <div id="slot-preview-3" style="display:none;position:relative;">
-              <img id="slot-img-3" style="width:100%;max-height:100px;object-fit:contain;border-radius:4px;">
-              <button onclick="removeSlot(3)" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:11px;line-height:20px;text-align:center;">✕</button>
-              <div id="slot-status-3" style="font-size:10px;color:var(--text-dim);margin-top:4px;text-align:center;"></div>
-            </div>
-            <div id="slot-empty-3">
-              <div style="font-size:24px;">📸</div>
-              <div style="font-size:11px;color:var(--text-dim);margin-top:4px;"><strong>Pag. 3</strong><br>Pett. 101–150</div>
-            </div>
-          </div>
+          <!-- Preview caricamenti -->
+          <div id="multi-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
         </div>
 
         <div style="text-align:center;">
@@ -931,11 +917,18 @@ let state = {
   apiKey: '',
   editionYear: new Date().getFullYear().toString(),
   editionInfo: '',
-  judges: Array.from({length:10}, (_,i) => ({
-    id: i+1,
-    name: '',
-    criterion: ''
-  })),
+  judges: [
+    {id:1,  name:'', criterion:'Allineamento frontale e laterale'},
+    {id:2,  name:'', criterion:'Luce, braccia e spinta'},
+    {id:3,  name:'', criterion:'Eleganza ed armonia del gesto'},
+    {id:4,  name:'', criterion:'Parallelo a 3'},
+    {id:5,  name:'', criterion:'Parallelo a 2'},
+    {id:6,  name:'', criterion:'Luce, braccia e spinta'},
+    {id:7,  name:'', criterion:'Eleganza ed armonia del gesto'},
+    {id:8,  name:'', criterion:'Polso e apertura mano'},
+    {id:9,  name:'', criterion:'Passo ampio e rullata'},
+    {id:10, name:'', criterion:'Eleganza ed armonia del gesto'},
+  ],
   athletes: [],   // {pettorale, nome, cognome, asd, cat}
   scores: {},     // {pettorale: {judgeId: score}}
   judgeStatus: {} // {judgeId: 'none'|'confirmed'}
@@ -968,57 +961,7 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  showAutosaveIndicator();
-  scheduleAutoBackup();
 }
-
-function showAutosaveIndicator() {
-  const el = document.getElementById('autosave-indicator');
-  const txt = document.getElementById('autosave-text');
-  if (!el || !txt) return;
-  const now = new Date();
-  const time = now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-  txt.textContent = `✓ Salvato ${time}`;
-  el.style.display = 'block';
-  el.style.opacity = '1';
-  // Fade out after 4 seconds
-  clearTimeout(window._saveIndicatorTimer);
-  window._saveIndicatorTimer = setTimeout(() => {
-    el.style.transition = 'opacity 1s';
-    el.style.opacity = '0.4';
-  }, 4000);
-}
-
-// Auto-backup every 10 minutes if there are athletes
-let _autoBackupTimer = null;
-function scheduleAutoBackup() {
-  if (_autoBackupTimer) return; // already scheduled
-  _autoBackupTimer = setInterval(() => {
-    if (state.athletes.length === 0) return;
-    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const now = new Date();
-    const ts = now.toISOString().slice(0,16).replace('T','_').replace(':','h');
-    a.download = `backup_miglio_rosso_${ts}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    const txt = document.getElementById('autosave-text');
-    if (txt) txt.textContent = `💾 Backup ${now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'})}`;
-    const el = document.getElementById('autosave-indicator');
-    if (el) { el.style.opacity = '1'; el.style.display = 'block'; }
-  }, 10 * 60 * 1000); // ogni 10 minuti
-}
-
-// Warn before closing if data exists
-window.addEventListener('beforeunload', (e) => {
-  if (state.athletes.length > 0) {
-    e.preventDefault();
-    e.returnValue = 'Hai dati non esportati. Vuoi davvero uscire?';
-    return e.returnValue;
-  }
-});
 
 // ══════════════════════════════════════════
 //  NAVIGATION
@@ -1053,18 +996,19 @@ function getTotal(pettorale) {
   return Object.values(s).reduce((a,b) => a+Number(b), 0);
 }
 
-function getTotalWithoutLowest(pettorale) {
+function getJudgesSum(pettorale, judgeIds) {
   const s = getAthleteScores(pettorale);
-  const vals = Object.values(s).map(Number);
-  if (vals.length === 0) return 0;
-  if (vals.length === 1) return vals[0];
-  const min = Math.min(...vals);
-  const idx = vals.indexOf(min);
-  return vals.reduce((a,b,i) => i===idx ? a : a+b, 0);
+  return judgeIds.reduce((sum, id) => sum + Number(s[id] || 0), 0);
 }
 
-function getJudge1Score(pettorale) {
-  return Number(getAthleteScores(pettorale)[1] || 0);
+// Spareggio 1: somma G3+G7+G10 (Eleganza ed armonia del gesto)
+function getTiebreak1(pettorale) {
+  return getJudgesSum(pettorale, [3, 7, 10]);
+}
+
+// Spareggio 2: somma G2+G6 (Luce, braccia e spinta)
+function getTiebreak2(pettorale) {
+  return getJudgesSum(pettorale, [2, 6]);
 }
 
 function getVoteCount(pettorale) {
@@ -1072,11 +1016,30 @@ function getVoteCount(pettorale) {
 }
 
 function compareAthletes(a, b) {
-  const ta = getTotal(a.pettorale), tb = getTotal(b.pettorale);
+  const pa = a.pettorale, pb = b.pettorale;
+  // 1. Totale complessivo
+  const ta = getTotal(pa), tb = getTotal(pb);
   if (ta !== tb) return tb - ta;
-  const wa = getTotalWithoutLowest(a.pettorale), wb = getTotalWithoutLowest(b.pettorale);
-  if (wa !== wb) return wb - wa;
-  return getJudge1Score(b.pettorale) - getJudge1Score(a.pettorale);
+  // 2. G3+G7+G10 — Eleganza ed armonia del gesto (3 giudici)
+  const s1a = getJudgesSum(pa,[3,7,10]), s1b = getJudgesSum(pb,[3,7,10]);
+  if (s1a !== s1b) return s1b - s1a;
+  // 3. G2+G6 — Luce, braccia e spinta (2 giudici)
+  const s2a = getJudgesSum(pa,[2,6]), s2b = getJudgesSum(pb,[2,6]);
+  if (s2a !== s2b) return s2b - s2a;
+  // 4. G9 — Passo ampio e rullata
+  const s3a = getJudgesSum(pa,[9]), s3b = getJudgesSum(pb,[9]);
+  if (s3a !== s3b) return s3b - s3a;
+  // 5. G8 — Polso e apertura mano
+  const s4a = getJudgesSum(pa,[8]), s4b = getJudgesSum(pb,[8]);
+  if (s4a !== s4b) return s4b - s4a;
+  // 6. G1 — Allineamento frontale e laterale
+  const s5a = getJudgesSum(pa,[1]), s5b = getJudgesSum(pb,[1]);
+  if (s5a !== s5b) return s5b - s5a;
+  // 7. G5 — Parallelo a 2
+  const s6a = getJudgesSum(pa,[5]), s6b = getJudgesSum(pb,[5]);
+  if (s6a !== s6b) return s6b - s6a;
+  // 8. G4 — Parallelo a 3 (ultimo, caso statisticamente impossibile)
+  return getJudgesSum(pb,[4]) - getJudgesSum(pa,[4]);
 }
 
 function getASDList() {
@@ -1380,33 +1343,52 @@ function openJudgeModal(judgeId) {
   document.getElementById('modal-judge').classList.add('open');
 }
 
-// slotFiles: {1: File, 2: File, 3: File, 4: File}
+// slotFiles: {1: File, 2: File, ...} — populated from multi-file input
 let slotFiles = {};
 
-function handleSlotFile(event, slot) {
-  const file = event.target.files[0];
-  if (!file) return;
-  slotFiles[slot] = file;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('slot-empty-' + slot).style.display = 'none';
-    document.getElementById('slot-preview-' + slot).style.display = 'block';
-    document.getElementById('slot-img-' + slot).src = e.target.result;
-    document.getElementById('slot-status-' + slot).textContent = 'Pronta';
-    document.getElementById('btn-run-ocr').style.display = 'inline-flex';
-    document.getElementById('ocr-status').textContent = '';
-  };
-  reader.readAsDataURL(file);
+function handleMultiFiles(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+
+  // Sort files by name (Pag.1 before Pag.2 etc.)
+  files.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+
+  // Assign to slots in order
+  slotFiles = {};
+  files.forEach((file, i) => { slotFiles[i+1] = file; });
+
+  // Render previews
+  const container = document.getElementById('multi-previews');
+  container.innerHTML = '';
+  files.forEach((file, i) => {
+    const slot = i+1;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const div = document.createElement('div');
+      div.id = 'slot-preview-' + slot;
+      div.style.cssText = 'position:relative;width:calc(33% - 6px);min-width:80px;';
+      div.innerHTML = `
+        <img src="${e.target.result}" style="width:100%;max-height:90px;object-fit:contain;border-radius:6px;border:1px solid var(--border);">
+        <div style="font-size:10px;color:var(--text-dim);text-align:center;margin-top:2px;">Pag. ${slot}</div>
+        <div id="slot-status-${slot}" style="font-size:10px;text-align:center;"></div>
+        <button onclick="removeSlotFile(${slot})" style="position:absolute;top:2px;right:2px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;line-height:18px;text-align:center;">✕</button>
+      `;
+      container.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('btn-run-ocr').style.display = 'inline-flex';
+  document.getElementById('ocr-status').textContent = `${files.length} foto caricate`;
 }
 
-function removeSlot(slot) {
+function removeSlotFile(slot) {
   delete slotFiles[slot];
-  document.getElementById('slot-empty-' + slot).style.display = 'block';
-  document.getElementById('slot-preview-' + slot).style.display = 'none';
-  document.getElementById('slot-img-' + slot).src = '';
-  document.getElementById('slot-status-' + slot).textContent = '';
+  const el = document.getElementById('slot-preview-' + slot);
+  if (el) el.remove();
   if (Object.keys(slotFiles).length === 0) {
     document.getElementById('btn-run-ocr').style.display = 'none';
+    document.getElementById('ocr-status').textContent = '';
   }
 }
 
@@ -1552,16 +1534,10 @@ function backToUpload() {
 
 function resetSlots() {
   slotFiles = {};
-  for (let s=1; s<=3; s++) {
-    const ep = document.getElementById(`slot-empty-${s}`);
-    const pp = document.getElementById(`slot-preview-${s}`);
-    const si = document.getElementById(`slot-img-${s}`);
-    const ss = document.getElementById(`slot-status-${s}`);
-    if (ep) ep.style.display = 'block';
-    if (pp) pp.style.display = 'none';
-    if (si) si.src = '';
-    if (ss) ss.textContent = '';
-  }
+  const container = document.getElementById('multi-previews');
+  if (container) container.innerHTML = '';
+  const inp = document.getElementById('multi-file-input');
+  if (inp) inp.value = '';
   const btn = document.getElementById('btn-run-ocr');
   if (btn) btn.style.display = 'none';
   const st = document.getElementById('ocr-status');
@@ -1620,6 +1596,201 @@ function confirmJudgeScores() {
 // ══════════════════════════════════════════
 let currentClassTab = 'camminatori';
 
+// Criteri feedback (esclusi G4=Parallelo a 3 e G5=Parallelo a 2)
+const FEEDBACK_CRITERI = {
+  'Allineamento':    [1],
+  'Luce e spinta':   [2, 6],
+  'Eleganza':        [3, 7, 10],
+  'Polso e mano':    [8],
+  'Passo e rullata': [9],
+};
+
+function getCriteriMedi(pettorale) {
+  const s = getAthleteScores(pettorale);
+  const result = {};
+  for (const [nome, giudici] of Object.entries(FEEDBACK_CRITERI)) {
+    const voti = giudici.map(g => Number(s[g] || 0));
+    result[nome] = voti.reduce((a,b)=>a+b,0) / voti.length;
+  }
+  return result;
+}
+
+function getFeedback(pettorale) {
+  const medi = getCriteriMedi(pettorale);
+  const valori = Object.values(medi);
+  const mediaPersonale = valori.reduce((a,b)=>a+b,0) / valori.length;
+  const sorted = Object.entries(medi).sort((a,b)=>b[1]-a[1]);
+  const forza = sorted.filter(([k,v])=>v>=mediaPersonale).map(([k])=>k);
+  const miglioramento = sorted.filter(([k,v])=>v<mediaPersonale).map(([k])=>k).reverse();
+  return { forza, miglioramento };
+}
+
+function buildAsdMap() {
+  const asdMap = {};
+  for (const a of state.athletes) {
+    if (!a.asd || getVoteCount(a.pettorale)===0) continue;
+    if (!asdMap[a.asd]) asdMap[a.asd]={I:[],C:[]};
+    asdMap[a.asd][a.cat].push(a);
+  }
+  return asdMap;
+}
+
+function renderFeedbackASD() {
+  const container = document.getElementById('feedback-asd-list');
+  if (!container) return;
+  const asdMap = buildAsdMap();
+  if (!Object.keys(asdMap).length) {
+    container.innerHTML='<div class="empty-state"><div class="icon">📋</div><p>Nessun dato disponibile</p></div>';
+    return;
+  }
+  const asds = Object.keys(asdMap).sort();
+  container.innerHTML = asds.map(asd => {
+    const data = asdMap[asd];
+    const renderGruppo = (atleti, label) => {
+      if (!atleti.length) return '';
+      const sorted = [...atleti].sort(compareAthletes);
+      const rows = sorted.map(a => {
+        const fb = getFeedback(a.pettorale);
+        const forza = fb.forza.length
+          ? `<span style="color:#1a7a1a;">✅ ${fb.forza.join(' · ')}</span>`
+          : '<span style="color:var(--text-dim)">—</span>';
+        const miglio = fb.miglioramento.length
+          ? `<span style="color:var(--red);">💡 ${fb.miglioramento.join(' · ')}</span>`
+          : '<span style="color:var(--text-dim)">—</span>';
+        return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+          <div style="font-weight:700;font-size:13px;margin-bottom:3px;">${a.pettorale}. ${a.cognome} ${a.nome}</div>
+          <div style="font-size:12px;line-height:1.9;">${forza}<br>${miglio}</div>
+        </div>`;
+      }).join('');
+      return `<div style="font-weight:700;color:var(--red);font-size:11px;margin:10px 0 2px;text-transform:uppercase;letter-spacing:0.5px;">${label} (${atleti.length})</div>${rows}`;
+    };
+    const asdSlug = asd.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    return `<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:var(--red);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-weight:700;font-size:14px;">🏟️ ${asd}</span>
+        <button onclick="exportFeedbackPDF('${asdSlug}')" style="background:#fff;color:var(--red);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;">📄 PDF</button>
+      </div>
+      <div id="feedback-${asdSlug}" style="padding:4px 14px 10px;">
+        ${renderGruppo(data.I,'Istruttori')}${renderGruppo(data.C,'Camminatori')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function buildFeedbackText(asd, data) {
+  const anno = state.editionYear || new Date().getFullYear();
+  let lines = [];
+  lines.push(`FEEDBACK TECNICO — MIGLIO ROSSO ${anno}`);
+  lines.push(`${asd}`);
+  lines.push(`Documento riservato all'istruttore di riferimento`);
+  lines.push(`Criteri: Allineamento · Luce e spinta · Eleganza · Polso e mano · Passo e rullata`);
+  lines.push('');
+
+  const addGruppo = (atleti, label) => {
+    if (!atleti.length) return;
+    const sorted = [...atleti].sort(compareAthletes);
+    lines.push(`── ${label.toUpperCase()} ──`);
+    for (const a of sorted) {
+      const fb = getFeedback(a.pettorale);
+      lines.push('');
+      lines.push(`${a.cognome} ${a.nome}`);
+      lines.push(`✅ Punti di forza: ${fb.forza.length ? fb.forza.join(', ') : '—'}`);
+      lines.push(`💡 Aree di miglioramento: ${fb.miglioramento.length ? fb.miglioramento.join(', ') : '—'}`);
+    }
+    lines.push('');
+  };
+
+  addGruppo(data.I, 'Istruttori');
+  addGruppo(data.C, 'Camminatori');
+  return lines.join('\n');
+}
+
+function buildFeedbackHTML(asd, data) {
+  const anno = state.editionYear || new Date().getFullYear();
+  const renderGruppo = (atleti, label) => {
+    if (!atleti.length) return '';
+    const sorted = [...atleti].sort(compareAthletes);
+    const rows = sorted.map(a => {
+      const fb = getFeedback(a.pettorale);
+      const forza = fb.forza.length ? fb.forza.join(' &nbsp;·&nbsp; ') : '—';
+      const miglio = fb.miglioramento.length ? fb.miglioramento.join(' &nbsp;·&nbsp; ') : '—';
+      return `<div style="padding:10px 0;border-bottom:1px solid #eee;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:5px;">${a.cognome} ${a.nome}</div>
+        <div style="font-size:12px;line-height:1.8;">
+          <span style="color:#1a7a1a;font-weight:600;">✅ Punti di forza:</span>
+          <span style="color:#1a7a1a;"> ${forza}</span>
+        </div>
+        <div style="font-size:12px;line-height:1.8;">
+          <span style="color:#c0392b;font-weight:600;">💡 Aree di miglioramento:</span>
+          <span style="color:#c0392b;"> ${miglio}</span>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div style="font-weight:700;color:#ED2D23;font-size:11px;margin:14px 0 4px;
+      text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid #ED2D23;padding-bottom:3px;">
+      ${label} (${atleti.length})
+    </div>${rows}`;
+  };
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Feedback ${asd} — Miglio Rosso ${anno}</title>
+  <style>
+    @page { margin: 20mm; }
+    body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; }
+    .header { background: #ED2D23; color: #fff; padding: 18px 24px; margin-bottom: 20px; }
+    .header h1 { margin: 0 0 4px; font-size: 18px; }
+    .header h2 { margin: 0 0 4px; font-size: 14px; font-weight: 400; }
+    .header p  { margin: 0; font-size: 11px; opacity: 0.85; }
+    .nota { background: #fff8e1; border-left: 4px solid #ED2D23; padding: 10px 14px;
+      font-size: 11px; color: #555; margin-bottom: 18px; border-radius: 0 4px 4px 0; }
+    .footer { margin-top: 30px; font-size: 10px; color: #999; border-top: 1px solid #eee;
+      padding-top: 8px; text-align: center; }
+  </style></head><body>
+  <div class="header">
+    <h1>Feedback Tecnico — Miglio Rosso ${anno}</h1>
+    <h2>${asd}</h2>
+    <p>Documento riservato all'istruttore di riferimento</p>
+  </div>
+  <div class="nota">
+    ℹ️ I criteri valutati sono: Allineamento &nbsp;·&nbsp; Luce e spinta &nbsp;·&nbsp;
+    Eleganza &nbsp;·&nbsp; Polso e apertura mano &nbsp;·&nbsp; Passo e rullata.<br>
+    I punti di forza e le aree di miglioramento sono calcolati rispetto alla media personale
+    di ogni atleta. I voti dei singoli giudici restano anonimi.
+  </div>
+  <div>
+    ${renderGruppo(data.I,'Istruttori')}
+    ${renderGruppo(data.C,'Camminatori')}
+  </div>
+  <div class="footer">
+    Miglio Rosso ${anno} &nbsp;·&nbsp; Sile Walking ASD Albaredo &nbsp;·&nbsp; NordicWalkInSile
+  </div>
+  </body></html>`;
+}
+
+function exportFeedbackPDF(asdSlug) {
+  const asdMap = buildAsdMap();
+  const asd = Object.keys(asdMap).find(k => k.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'') === asdSlug);
+  if (!asd) return;
+  const html = buildFeedbackHTML(asd, asdMap[asd]);
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => { win.print(); }, 600);
+}
+
+function exportAllFeedbackPDF() {
+  const asdMap = buildAsdMap();
+  const asds = Object.keys(asdMap).sort();
+  if (!asds.length) { alert('Nessun dato disponibile.'); return; }
+  // Apre una finestra per ogni ASD con 800ms di intervallo per non bloccare il browser
+  asds.forEach((asd, i) => {
+    setTimeout(() => {
+      const slug = asd.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+      exportFeedbackPDF(slug);
+    }, i * 800);
+  });
+}
+
 function showClassTab(id) {
   currentClassTab = id;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1639,6 +1810,7 @@ function renderClassifiche() {
   renderClassCam();
   renderClassIst();
   renderClassSqu();
+  renderFeedbackASD();
 }
 
 function renderClassCam() {
@@ -1660,12 +1832,10 @@ function renderClassCam() {
     return;
   }
 
-  let pos = 0, prevTotal = -1, sameCount = 0;
   tbody.innerHTML = athletes.map((a, i) => {
     const total = getTotal(a.pettorale);
     const scores = getAthleteScores(a.pettorale);
-    if (total !== prevTotal) { pos = i+1; sameCount = 0; } else { sameCount++; }
-    prevTotal = total;
+    const pos = i+1;
     const badge = pos<=3 ? `<span class="rank-badge rank-${pos}">${pos}</span>` : `<span class="rank-badge rank-n">${pos}</span>`;
     const judgesCells = Array.from({length:10}, (_,j) =>
       `<td class="td-center td-mono" style="font-size:12px;color:var(--text-dim);">${scores[j+1]!==undefined?scores[j+1]:'—'}</td>`
@@ -1699,12 +1869,10 @@ function renderClassIst() {
     return;
   }
 
-  let pos = 0, prevTotal = -1;
   tbody.innerHTML = athletes.map((a, i) => {
     const total = getTotal(a.pettorale);
     const scores = getAthleteScores(a.pettorale);
-    if (total !== prevTotal) { pos = i+1; }
-    prevTotal = total;
+    const pos = i+1;
     const badge = pos<=3 ? `<span class="rank-badge rank-${pos}">${pos}</span>` : `<span class="rank-badge rank-n">${pos}</span>`;
     const judgesCells = Array.from({length:10}, (_,j) =>
       `<td class="td-center td-mono" style="font-size:12px;color:var(--text-dim);">${scores[j+1]!==undefined?scores[j+1]:'—'}</td>`
@@ -1742,32 +1910,40 @@ function renderClassSqu() {
     const top4 = sortedCam.slice(0, 4);
     const camScore = top4.reduce((s,a) => s + getTotal(a.pettorale), 0);
 
+    const total = istScore + camScore;
+    // Escludi squadre senza alcun punteggio
+    if (total === 0) continue;
+
     squadre.push({
-      asd,
-      istScore,
-      camScore,
-      total: istScore + camScore,
-      bestIstName: bestIst ? `${bestIst.cognome} ${bestIst.nome}` : '—',
-      top4Names: top4.map(a => `${a.cognome} ${a.nome}`).join(', ')
+      asd, istScore, camScore, total,
+      bestIstName: bestIst ? `${bestIst.cognome} ${bestIst.nome} (${istScore})` : '— (nessun istruttore)',
+      top4Names: top4.length > 0
+        ? top4.map(a => `${a.cognome} ${a.nome} (${getTotal(a.pettorale)})`).join('<br>')
+        : '—'
     });
   }
 
   squadre.sort((a,b) => b.total - a.total);
 
   if (squadre.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">🏟️</div><p>Nessuna squadra</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">🏟️</div><p>Nessuna squadra con punteggi</p></div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = squadre.map((s, i) => {
     const pos = i+1;
     const badge = pos<=3 ? `<span class="rank-badge rank-${pos}">${pos}</span>` : `<span class="rank-badge rank-n">${pos}</span>`;
+    const trofeo = pos===1 ? ' 🏆' : '';
     return `<tr>
       <td class="td-center">${badge}</td>
-      <td style="font-weight:600;">${s.asd}</td>
-      <td class="td-right td-mono">${s.istScore||'—'}</td>
+      <td>
+        <div style="font-weight:700;font-size:14px;">${s.asd}${trofeo}</div>
+        <div style="font-size:11px;color:var(--red);margin-top:2px;">👨‍🏫 ${s.bestIstName}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">🚶 ${s.top4Names}</div>
+      </td>
+      <td class="td-right td-mono" style="color:var(--gold);font-weight:700;">${s.istScore||'—'}</td>
       <td class="td-right td-mono">${s.camScore||'—'}</td>
-      <td class="td-right td-mono" style="font-weight:700;font-size:15px;">${s.total||'—'}</td>
+      <td class="td-right td-mono" style="font-weight:800;font-size:16px;color:var(--red);">${s.total}</td>
     </tr>`;
   }).join('');
 }
