@@ -407,6 +407,38 @@ tbody td {
   border: 1px solid var(--border);
 }
 
+/* ── FEEDBACK LEGENDA ── */
+.feedback-legenda {
+  background: #fff8e1;
+  border-left: 4px solid var(--red);
+  border-radius: 0 6px 6px 0;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #333;
+}
+.feedback-legenda .legenda-titolo {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.feedback-legenda .legenda-row {
+  display: block;
+  margin: 3px 0;
+}
+.feedback-legenda .legenda-icon {
+  display: inline-block;
+  width: 22px;
+}
+.feedback-legenda .legenda-label {
+  font-weight: 700;
+  margin-right: 4px;
+}
+
 /* ── PRINT ── */
 @media print {
   .judge-col { display: none !important; }
@@ -420,7 +452,9 @@ tbody td {
   .section:not(#sec-classifiche) { display: none !important; }
   #sec-classifiche .tabs,
   #sec-classifiche .page-header .btn { display: none !important; }
-  .tab-content { display: block !important; page-break-after: always; }
+  /* FIX: stampa solo il tab attivo, non tutti in cascata */
+  .tab-content { display: none !important; }
+  .tab-content.active { display: block !important; }
   table { font-size: 11px; }
   .rank-badge { width: 20px; height: 20px; font-size: 10px; }
   .card { border: none; padding: 0; box-shadow: none; }
@@ -686,7 +720,7 @@ tbody td {
     <div class="card">
       <div class="card-header">
         <span class="card-title">📋 FEEDBACK TECNICO PER ASD</span>
-        <span class="tiebreak-note">Basato sulla media personale dei 5 criteri anonimi</span>
+        <span class="tiebreak-note">Doppio asse: media personale + media categoria</span>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
         <span style="font-size:12px;color:var(--text-dim);">ℹ️ Criteri: Allineamento · Luce e spinta · Eleganza · Polso e mano · Passo e rullata</span>
@@ -1610,6 +1644,9 @@ const FEEDBACK_CRITERI = {
   'Passo e rullata': [9],
 };
 
+// Zona neutra ±3% intorno alla media categoria
+const NEUTRAL_ZONE = 0.03;
+
 function getCriteriMedi(pettorale) {
   const s = getAthleteScores(pettorale);
   const result = {};
@@ -1620,14 +1657,58 @@ function getCriteriMedi(pettorale) {
   return result;
 }
 
+// NUOVA — Media di categoria per ogni criterio (Camminatori o Istruttori)
+function getCategoryMeans(cat) {
+  const atleti = state.athletes.filter(a =>
+    a.cat === cat && getVoteCount(a.pettorale) > 0
+  );
+  if (atleti.length === 0) return null;
+  const means = {};
+  for (const nome of Object.keys(FEEDBACK_CRITERI)) {
+    const valori = atleti.map(a => getCriteriMedi(a.pettorale)[nome]);
+    means[nome] = valori.reduce((a,b)=>a+b,0) / valori.length;
+  }
+  return means;
+}
+
+// RISCRITTA — Doppio asse: media personale + media categoria
 function getFeedback(pettorale) {
+  const empty = { eccellenza:[], puntoForte:[], buonLivello:[], daLavorare:[] };
+  const a = state.athletes.find(x => x.pettorale === pettorale);
+  if (!a) return empty;
+
   const medi = getCriteriMedi(pettorale);
   const valori = Object.values(medi);
-  const mediaPersonale = valori.reduce((a,b)=>a+b,0) / valori.length;
-  const sorted = Object.entries(medi).sort((a,b)=>b[1]-a[1]);
-  const forza = sorted.filter(([k,v])=>v>=mediaPersonale).map(([k])=>k);
-  const miglioramento = sorted.filter(([k,v])=>v<mediaPersonale).map(([k])=>k).reverse();
-  return { forza, miglioramento };
+  if (valori.length === 0) return empty;
+  const mediaPersonale = valori.reduce((s,v)=>s+v,0) / valori.length;
+
+  const mediaCat = getCategoryMeans(a.cat);
+  if (!mediaCat) return empty;
+
+  const result = { eccellenza:[], puntoForte:[], buonLivello:[], daLavorare:[] };
+
+  for (const [nome, valore] of Object.entries(medi)) {
+    const sopraPersonale = valore >= mediaPersonale;
+    const sogliaSup = mediaCat[nome] * (1 + NEUTRAL_ZONE);
+    const sogliaInf = mediaCat[nome] * (1 - NEUTRAL_ZONE);
+
+    if (sopraPersonale) {
+      // Sopra la media personale
+      if (valore > sogliaSup) {
+        result.eccellenza.push(nome);          // 🟢 sopra cat. + sopra personale
+      } else {
+        result.puntoForte.push(nome);          // 🟡 sotto/in zona neutra cat. + sopra personale
+      }
+    } else {
+      // Sotto la media personale
+      if (valore < sogliaInf) {
+        result.daLavorare.push(nome);          // 🔴 sotto cat. + sotto personale
+      } else {
+        result.buonLivello.push(nome);         // 🔵 sopra/in zona neutra cat. + sotto personale
+      }
+    }
+  }
+  return result;
 }
 
 function buildAsdMap() {
@@ -1640,6 +1721,34 @@ function buildAsdMap() {
   return asdMap;
 }
 
+// HTML legenda (per schermata)
+function renderLegendaHTML() {
+  return `<div class="feedback-legenda">
+    <div class="legenda-titolo">Come leggere il feedback</div>
+    <div class="legenda-row">
+      <span class="legenda-icon">🟢</span>
+      <span class="legenda-label">Eccellenza</span>
+      — sopra la media di categoria e sopra la media personale dell'atleta
+    </div>
+    <div class="legenda-row">
+      <span class="legenda-icon">🟡</span>
+      <span class="legenda-label">Punto forte personale</span>
+      — sopra la media personale, c'è margine rispetto alla categoria
+    </div>
+    <div class="legenda-row">
+      <span class="legenda-icon">🔵</span>
+      <span class="legenda-label">Buon livello</span>
+      — sopra la media di categoria, è un punto meno forte nel profilo personale
+    </div>
+    <div class="legenda-row">
+      <span class="legenda-icon">🔴</span>
+      <span class="legenda-label">Da lavorare</span>
+      — sotto la media personale e sotto la media di categoria (priorità di lavoro)
+    </div>
+  </div>`;
+}
+
+// RISCRITTA — Schermata feedback con legenda + 4 etichette + font ingranditi
 function renderFeedbackASD() {
   const container = document.getElementById('feedback-asd-list');
   if (!container) return;
@@ -1649,90 +1758,86 @@ function renderFeedbackASD() {
     return;
   }
   const asds = Object.keys(asdMap).sort();
-  container.innerHTML = asds.map(asd => {
-    const data = asdMap[asd];
-    const renderGruppo = (atleti, label) => {
-      if (!atleti.length) return '';
-      const sorted = [...atleti].sort(compareAthletes);
-      const rows = sorted.map(a => {
-        const fb = getFeedback(a.pettorale);
-        const forza = fb.forza.length
-          ? `<span style="color:#1a7a1a;">✅ ${fb.forza.join(' · ')}</span>`
-          : '<span style="color:var(--text-dim)">—</span>';
-        const miglio = fb.miglioramento.length
-          ? `<span style="color:var(--red);">💡 ${fb.miglioramento.join(' · ')}</span>`
-          : '<span style="color:var(--text-dim)">—</span>';
-        return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
-          <div style="font-weight:700;font-size:13px;margin-bottom:3px;">${a.pettorale}. ${a.cognome} ${a.nome}</div>
-          <div style="font-size:12px;line-height:1.9;">${forza}<br>${miglio}</div>
-        </div>`;
-      }).join('');
-      return `<div style="font-weight:700;color:var(--red);font-size:11px;margin:10px 0 2px;text-transform:uppercase;letter-spacing:0.5px;">${label} (${atleti.length})</div>${rows}`;
-    };
-    const asdSlug = asd.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
-    return `<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:16px;overflow:hidden;">
-      <div style="background:var(--red);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-weight:700;font-size:14px;">🏟️ ${asd}</span>
-        <button onclick="exportFeedbackPDF('${asdSlug}')" style="background:#fff;color:var(--red);border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;">📄 PDF</button>
-      </div>
-      <div id="feedback-${asdSlug}" style="padding:4px 14px 10px;">
-        ${renderGruppo(data.I,'Istruttori')}${renderGruppo(data.C,'Camminatori')}
-      </div>
+
+  // Helper riga etichetta (mostrata solo se non vuota)
+  const renderRiga = (icona, label, criteri, colore) => {
+    if (!criteri.length) return '';
+    return `<div style="font-size:14px;line-height:1.7;margin:2px 0;">
+      <span style="display:inline-block;width:24px;">${icona}</span>
+      <strong style="color:${colore};">${label}:</strong>
+      <span style="margin-left:4px;">${criteri.join(' · ')}</span>
     </div>`;
-  }).join('');
-}
-
-function buildFeedbackText(asd, data) {
-  const anno = state.editionYear || new Date().getFullYear();
-  let lines = [];
-  lines.push(`FEEDBACK TECNICO — MIGLIO ROSSO ${anno}`);
-  lines.push(`${asd}`);
-  lines.push(`Documento riservato all'istruttore di riferimento`);
-  lines.push(`Criteri: Allineamento · Luce e spinta · Eleganza · Polso e mano · Passo e rullata`);
-  lines.push('');
-
-  const addGruppo = (atleti, label) => {
-    if (!atleti.length) return;
-    const sorted = [...atleti].sort(compareAthletes);
-    lines.push(`── ${label.toUpperCase()} ──`);
-    for (const a of sorted) {
-      const fb = getFeedback(a.pettorale);
-      lines.push('');
-      lines.push(`${a.cognome} ${a.nome}`);
-      lines.push(`✅ Punti di forza: ${fb.forza.length ? fb.forza.join(', ') : '—'}`);
-      lines.push(`💡 Aree di miglioramento: ${fb.miglioramento.length ? fb.miglioramento.join(', ') : '—'}`);
-    }
-    lines.push('');
   };
 
-  addGruppo(data.I, 'Istruttori');
-  addGruppo(data.C, 'Camminatori');
-  return lines.join('\n');
-}
-
-function buildFeedbackHTML(asd, data) {
-  const anno = state.editionYear || new Date().getFullYear();
   const renderGruppo = (atleti, label) => {
     if (!atleti.length) return '';
     const sorted = [...atleti].sort(compareAthletes);
     const rows = sorted.map(a => {
       const fb = getFeedback(a.pettorale);
-      const forza = fb.forza.length ? fb.forza.join(' &nbsp;·&nbsp; ') : '—';
-      const miglio = fb.miglioramento.length ? fb.miglioramento.join(' &nbsp;·&nbsp; ') : '—';
-      return `<div style="padding:10px 0;border-bottom:1px solid #eee;">
-        <div style="font-weight:700;font-size:13px;margin-bottom:5px;">${a.cognome} ${a.nome}</div>
-        <div style="font-size:12px;line-height:1.8;">
-          <span style="color:#1a7a1a;font-weight:600;">✅ Punti di forza:</span>
-          <span style="color:#1a7a1a;"> ${forza}</span>
-        </div>
-        <div style="font-size:12px;line-height:1.8;">
-          <span style="color:#c0392b;font-weight:600;">💡 Aree di miglioramento:</span>
-          <span style="color:#c0392b;"> ${miglio}</span>
-        </div>
+      const righe = [
+        renderRiga('🟢', 'Eccellenza',           fb.eccellenza, '#1a7a1a'),
+        renderRiga('🟡', 'Punto forte personale', fb.puntoForte,  '#9a7a00'),
+        renderRiga('🔵', 'Buon livello',         fb.buonLivello, '#0d4f8c'),
+        renderRiga('🔴', 'Da lavorare',          fb.daLavorare,  '#c0392b'),
+      ].filter(Boolean).join('');
+      return `<div style="padding:12px 0;border-bottom:1px solid var(--border);">
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px;">${a.pettorale}. ${a.cognome} ${a.nome}</div>
+        ${righe || '<div style="font-size:13px;color:var(--text-dim);">— Nessun voto disponibile</div>'}
       </div>`;
     }).join('');
-    return `<div style="font-weight:700;color:#ED2D23;font-size:11px;margin:14px 0 4px;
-      text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid #ED2D23;padding-bottom:3px;">
+    return `<div style="font-weight:700;color:var(--red);font-size:13px;margin:14px 0 4px;text-transform:uppercase;letter-spacing:0.7px;">${label} (${atleti.length})</div>${rows}`;
+  };
+
+  // Costruisci output: legenda + lista ASD
+  let html = renderLegendaHTML();
+  html += asds.map(asd => {
+    const data = asdMap[asd];
+    const asdSlug = asd.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    return `<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:18px;overflow:hidden;">
+      <div style="background:var(--red);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-weight:700;font-size:16px;">🏟️ ${asd}</span>
+        <button onclick="exportFeedbackPDF('${asdSlug}')" style="background:#fff;color:var(--red);border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">📄 PDF</button>
+      </div>
+      <div id="feedback-${asdSlug}" style="padding:6px 16px 12px;">
+        ${renderGruppo(data.I,'Istruttori')}${renderGruppo(data.C,'Camminatori')}
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+// RISCRITTA — PDF feedback con legenda + 4 etichette + font ingranditi
+function buildFeedbackHTML(asd, data) {
+  const anno = state.editionYear || new Date().getFullYear();
+
+  const renderRiga = (icona, label, criteri, colore) => {
+    if (!criteri.length) return '';
+    return `<div style="font-size:14px;line-height:1.7;margin:3px 0;">
+      <span style="display:inline-block;width:22px;">${icona}</span>
+      <strong style="color:${colore};">${label}:</strong>
+      <span style="margin-left:4px;">${criteri.join(' &nbsp;·&nbsp; ')}</span>
+    </div>`;
+  };
+
+  const renderGruppo = (atleti, label) => {
+    if (!atleti.length) return '';
+    const sorted = [...atleti].sort(compareAthletes);
+    const rows = sorted.map(a => {
+      const fb = getFeedback(a.pettorale);
+      const righe = [
+        renderRiga('🟢', 'Eccellenza',           fb.eccellenza, '#1a7a1a'),
+        renderRiga('🟡', 'Punto forte personale', fb.puntoForte,  '#9a7a00'),
+        renderRiga('🔵', 'Buon livello',         fb.buonLivello, '#0d4f8c'),
+        renderRiga('🔴', 'Da lavorare',          fb.daLavorare,  '#c0392b'),
+      ].filter(Boolean).join('');
+      return `<div style="padding:12px 0;border-bottom:1px solid #eee;">
+        <div style="font-weight:700;font-size:15px;margin-bottom:5px;">${a.cognome} ${a.nome}</div>
+        ${righe || '<div style="font-size:13px;color:#888;">— Nessun voto disponibile</div>'}
+      </div>`;
+    }).join('');
+    return `<div style="font-weight:700;color:#ED2D23;font-size:13px;margin:18px 0 4px;
+      text-transform:uppercase;letter-spacing:0.8px;border-bottom:2px solid #ED2D23;padding-bottom:4px;">
       ${label} (${atleti.length})
     </div>${rows}`;
   };
@@ -1740,15 +1845,20 @@ function buildFeedbackHTML(asd, data) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>Feedback ${asd} — Miglio Rosso ${anno}</title>
   <style>
-    @page { margin: 20mm; }
-    body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; }
-    .header { background: #ED2D23; color: #fff; padding: 18px 24px; margin-bottom: 20px; }
-    .header h1 { margin: 0 0 4px; font-size: 18px; }
-    .header h2 { margin: 0 0 4px; font-size: 14px; font-weight: 400; }
-    .header p  { margin: 0; font-size: 11px; opacity: 0.85; }
-    .nota { background: #fff8e1; border-left: 4px solid #ED2D23; padding: 10px 14px;
-      font-size: 11px; color: #555; margin-bottom: 18px; border-radius: 0 4px 4px 0; }
-    .footer { margin-top: 30px; font-size: 10px; color: #999; border-top: 1px solid #eee;
+    @page { margin: 18mm; }
+    body { font-family: Arial, sans-serif; color: #222; margin: 0; padding: 0; font-size: 14px; }
+    .header { background: #ED2D23; color: #fff; padding: 18px 24px; margin-bottom: 18px; }
+    .header h1 { margin: 0 0 4px; font-size: 20px; }
+    .header h2 { margin: 0 0 4px; font-size: 16px; font-weight: 400; }
+    .header p  { margin: 0; font-size: 12px; opacity: 0.9; }
+    .legenda { background: #fff8e1; border-left: 4px solid #ED2D23; padding: 12px 16px;
+      font-size: 13px; line-height: 1.7; color: #333; margin-bottom: 18px; border-radius: 0 4px 4px 0; }
+    .legenda .titolo { font-weight: 700; font-size: 14px; color: #ED2D23;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .legenda .row { margin: 3px 0; }
+    .legenda .row .ic { display: inline-block; width: 22px; }
+    .legenda .row .lb { font-weight: 700; }
+    .footer { margin-top: 30px; font-size: 11px; color: #999; border-top: 1px solid #eee;
       padding-top: 8px; text-align: center; }
   </style></head><body>
   <div class="header">
@@ -1756,11 +1866,12 @@ function buildFeedbackHTML(asd, data) {
     <h2>${asd}</h2>
     <p>Documento riservato all'istruttore di riferimento</p>
   </div>
-  <div class="nota">
-    ℹ️ I criteri valutati sono: Allineamento &nbsp;·&nbsp; Luce e spinta &nbsp;·&nbsp;
-    Eleganza &nbsp;·&nbsp; Polso e apertura mano &nbsp;·&nbsp; Passo e rullata.<br>
-    I punti di forza e le aree di miglioramento sono calcolati rispetto alla media personale
-    di ogni atleta. I voti dei singoli giudici restano anonimi.
+  <div class="legenda">
+    <div class="titolo">Come leggere il feedback</div>
+    <div class="row"><span class="ic">🟢</span> <span class="lb">Eccellenza:</span> sopra la media di categoria e sopra la media personale dell'atleta</div>
+    <div class="row"><span class="ic">🟡</span> <span class="lb">Punto forte personale:</span> sopra la media personale, c'è margine rispetto alla categoria</div>
+    <div class="row"><span class="ic">🔵</span> <span class="lb">Buon livello:</span> sopra la media di categoria, è un punto meno forte nel profilo personale</div>
+    <div class="row"><span class="ic">🔴</span> <span class="lb">Da lavorare:</span> sotto la media personale e sotto la media di categoria (priorità di lavoro)</div>
   </div>
   <div>
     ${renderGruppo(data.I,'Istruttori')}
