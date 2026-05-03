@@ -1724,6 +1724,13 @@ function buildAsdMap() {
 // HTML legenda (per schermata)
 function renderLegendaHTML() {
   return `<div class="feedback-legenda">
+    <div style="font-size:13px;line-height:1.6;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed rgba(192,57,43,0.3);">
+      <strong>Documento riservato all'istruttore di riferimento dell'ASD.</strong>
+      Edizione sperimentale 2026. Le indicazioni sono di massima, basate sui voti anonimi
+      degli 8 giudici sull'andatura alternata, e rappresentano una <em>fotografia del momento</em>
+      della prestazione: restano un orientamento didattico e non sostituiscono la conoscenza
+      diretta dei propri atleti.
+    </div>
     <div class="legenda-titolo">Come leggere il feedback</div>
     <div class="legenda-row">
       <span class="legenda-icon">🟢</span>
@@ -1867,6 +1874,13 @@ function buildFeedbackHTML(asd, data) {
     <p>Documento riservato all'istruttore di riferimento</p>
   </div>
   <div class="legenda">
+    <div style="font-size:12px;line-height:1.6;color:#444;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed rgba(237,45,35,0.3);">
+      <strong>Documento riservato all'istruttore di riferimento dell'ASD.</strong>
+      Edizione sperimentale 2026. Le indicazioni sono di massima, basate sui voti anonimi
+      degli 8 giudici sull'andatura alternata, e rappresentano una <em>fotografia del momento</em>
+      della prestazione: restano un orientamento didattico e non sostituiscono la conoscenza
+      diretta dei propri atleti.
+    </div>
     <div class="titolo">Come leggere il feedback</div>
     <div class="row"><span class="ic">🟢</span> <span class="lb">Eccellenza:</span> sopra la media di categoria e sopra la media personale dell'atleta</div>
     <div class="row"><span class="ic">🟡</span> <span class="lb">Punto forte personale:</span> sopra la media personale, c'è margine rispetto alla categoria</div>
