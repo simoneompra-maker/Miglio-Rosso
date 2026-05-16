@@ -632,7 +632,7 @@ tbody td {
 <div class="section" id="sec-classifiche">
   <div class="page-header">
     <div class="page-title">CLASSI<span>FICHE</span></div>
-    <button class="btn btn-secondary no-print" onclick="window.print()">🖨️ Stampa</button>
+    <button class="btn btn-secondary no-print" onclick="stampaClassifica()">🖨️ Stampa</button>
   </div>
 
   <div class="tabs no-print">
@@ -1755,7 +1755,109 @@ function renderLegendaHTML() {
   </div>`;
 }
 
-// RISCRITTA — Schermata feedback con legenda + 4 etichette + font ingranditi
+// ── MATRICE SQUADRA: helper per generare la tabella visuale ──
+// Restituisce {label, color} per ogni criterio dell'atleta
+function getCriterioEtichetta(pettorale, criterio) {
+  const fb = getFeedback(pettorale);
+  if (fb.eccellenza.includes(criterio))   return { label:'🟢', color:'#1a7a1a' };
+  if (fb.puntoForte.includes(criterio))   return { label:'🟡', color:'#9a7a00' };
+  if (fb.buonLivello.includes(criterio))  return { label:'🔵', color:'#0d4f8c' };
+  if (fb.daLavorare.includes(criterio))   return { label:'🔴', color:'#c0392b' };
+  return { label:'—', color:'var(--text-muted)' };
+}
+
+// Genera l'HTML della matrice atleti × criteri per un'ASD
+function renderMatriceASD(data) {
+  const criteri = Object.keys(FEEDBACK_CRITERI); // 5 criteri
+  // Sigla breve per intestazione colonne (font piccolo)
+  const sigla = { 'Allineamento':'Allin.', 'Luce e spinta':'Luce/sp.', 'Eleganza':'Eleg.', 'Polso e mano':'Polso/m.', 'Passo e rullata':'Passo/r.' };
+
+  const renderRigaAtleta = a => {
+    const total = getTotal(a.pettorale);
+    const cells = criteri.map(c => {
+      const et = getCriterioEtichetta(a.pettorale, c);
+      return `<td style="text-align:center;padding:6px 4px;font-size:15px;">${et.label}</td>`;
+    }).join('');
+    return `<tr style="border-bottom:0.5px solid #eee;">
+      <td style="padding:6px 6px;font-size:12px;color:var(--text-dim);width:32px;">${a.pettorale}</td>
+      <td style="padding:6px 4px;font-weight:500;font-size:13px;">${a.cognome.toUpperCase()} ${a.nome}</td>
+      ${cells}
+      <td style="text-align:right;padding:6px 6px;font-weight:700;font-size:13px;">${total||'—'}</td>
+    </tr>`;
+  };
+
+  const renderGruppoMatrice = (atleti, label) => {
+    if (!atleti.length) return '';
+    const sorted = [...atleti].sort(compareAthletes);
+    return `<div style="font-weight:700;color:var(--red);font-size:11px;margin:10px 0 4px;text-transform:uppercase;letter-spacing:0.7px;">${label} (${atleti.length})</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:6px;">
+        <thead><tr style="border-bottom:1px solid #ccc;">
+          <th style="padding:6px 6px;font-size:10px;font-weight:600;color:var(--text-dim);text-align:left;width:32px;">Pett.</th>
+          <th style="padding:6px 4px;font-size:11px;font-weight:600;color:var(--text-dim);text-align:left;">Atleta</th>
+          ${criteri.map(c => `<th style="padding:6px 2px;font-size:10px;font-weight:600;color:var(--text-dim);text-align:center;">${sigla[c]}</th>`).join('')}
+          <th style="padding:6px 6px;font-size:11px;font-weight:600;color:var(--text-dim);text-align:right;">Tot.</th>
+        </tr></thead>
+        <tbody>${sorted.map(renderRigaAtleta).join('')}</tbody>
+      </table>`;
+  };
+
+  return renderGruppoMatrice(data.I,'Istruttori') + renderGruppoMatrice(data.C,'Camminatori');
+}
+
+// Calcola statistiche di squadra e genera frasi
+function renderPuntiAttenzioneASD(data) {
+  const tutti = [...data.I, ...data.C].filter(a => getVoteCount(a.pettorale) > 0);
+  if (tutti.length < 2) return ''; // su 1 atleta solo non ha senso
+
+  const criteri = Object.keys(FEEDBACK_CRITERI);
+  const conteggi = {}; // {criterio: {eccellenza:N, puntoForte:N, buonLivello:N, daLavorare:N}}
+  for (const c of criteri) conteggi[c] = {eccellenza:0, puntoForte:0, buonLivello:0, daLavorare:0};
+
+  for (const a of tutti) {
+    const fb = getFeedback(a.pettorale);
+    for (const c of criteri) {
+      if (fb.eccellenza.includes(c))  conteggi[c].eccellenza++;
+      if (fb.puntoForte.includes(c))  conteggi[c].puntoForte++;
+      if (fb.buonLivello.includes(c)) conteggi[c].buonLivello++;
+      if (fb.daLavorare.includes(c))  conteggi[c].daLavorare++;
+    }
+  }
+
+  const N = tutti.length;
+  const pct = n => Math.round(n/N*100);
+
+  // Frasi narrative
+  const frasi = [];
+
+  // Eccellenze collettive: criteri dove >=50% degli atleti ha 🟢
+  const eccellenzeCollettive = criteri.filter(c => conteggi[c].eccellenza/N >= 0.5);
+  if (eccellenzeCollettive.length) {
+    frasi.push(`<strong style="color:#1a7a1a;">Eccellenze collettive:</strong> ${eccellenzeCollettive.map(c=>`<em>${c}</em> (${conteggi[c].eccellenza}/${N})`).join(' · ')} — è il marchio di fabbrica della squadra.`);
+  }
+
+  // Criticità collettive: criteri dove >=30% degli atleti ha 🔴
+  const criticitaCollettive = criteri.filter(c => conteggi[c].daLavorare/N >= 0.3);
+  if (criticitaCollettive.length) {
+    frasi.push(`<strong style="color:#c0392b;">Da lavorare insieme:</strong> ${criticitaCollettive.map(c=>`<em>${c}</em> (${conteggi[c].daLavorare}/${N})`).join(' · ')} — priorità di lavoro per la squadra.`);
+  }
+
+  // Margine di crescita: criteri dove >=50% degli atleti ha 🔵
+  const marginiCrescita = criteri.filter(c => conteggi[c].buonLivello/N >= 0.5);
+  if (marginiCrescita.length) {
+    frasi.push(`<strong style="color:#0d4f8c;">Margine di rifinitura:</strong> ${marginiCrescita.map(c=>`<em>${c}</em> (${conteggi[c].buonLivello}/${N})`).join(' · ')} — buoni livelli che possono crescere verso l'eccellenza.`);
+  }
+
+  if (!frasi.length) {
+    frasi.push(`Squadra con profilo equilibrato: nessun criterio domina in eccellenza o in difficoltà sulla maggioranza degli atleti.`);
+  }
+
+  return `<div style="background:#fff8e1;border:0.5px solid #f0d080;border-radius:6px;padding:12px 14px;margin-top:10px;">
+    <div style="font-weight:700;font-size:13px;color:#8a6a00;margin-bottom:6px;">💡 Punti di attenzione della squadra</div>
+    <div style="font-size:13px;line-height:1.7;color:#444;">${frasi.join('<br>')}</div>
+  </div>`;
+}
+
+// RISCRITTA — Schermata feedback con legenda + matrice + 4 etichette + font ingranditi
 function renderFeedbackASD() {
   const container = document.getElementById('feedback-asd-list');
   if (!container) return;
@@ -1806,7 +1908,12 @@ function renderFeedbackASD() {
         <button onclick="exportFeedbackPDF('${asdSlug}')" style="background:#fff;color:var(--red);border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">📄 PDF</button>
       </div>
       <div id="feedback-${asdSlug}" style="padding:6px 16px 12px;">
-        ${renderGruppo(data.I,'Istruttori')}${renderGruppo(data.C,'Camminatori')}
+        ${renderMatriceASD(data)}
+        ${renderPuntiAttenzioneASD(data)}
+        <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--border);">
+          <div style="font-weight:700;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px;">Dettaglio per atleta</div>
+          ${renderGruppo(data.I,'Istruttori')}${renderGruppo(data.C,'Camminatori')}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -1888,8 +1995,13 @@ function buildFeedbackHTML(asd, data) {
     <div class="row"><span class="ic">🔴</span> <span class="lb">Da lavorare:</span> sotto la media personale e sotto la media di categoria (priorità di lavoro)</div>
   </div>
   <div>
-    ${renderGruppo(data.I,'Istruttori')}
-    ${renderGruppo(data.C,'Camminatori')}
+    ${renderMatriceASD(data)}
+    ${renderPuntiAttenzioneASD(data)}
+    <div style="margin-top:18px;padding-top:10px;border-top:1px dashed #ccc;">
+      <div style="font-weight:700;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px;">Dettaglio per atleta</div>
+      ${renderGruppo(data.I,'Istruttori')}
+      ${renderGruppo(data.C,'Camminatori')}
+    </div>
   </div>
   <div class="footer">
     Miglio Rosso ${anno} &nbsp;·&nbsp; Sile Walking ASD Albaredo &nbsp;·&nbsp; NordicWalkInSile
@@ -1919,6 +2031,23 @@ function exportAllFeedbackPDF() {
       exportFeedbackPDF(slug);
     }, i * 800);
   });
+}
+
+// Stampa la classifica del tab attivo con un nome file dinamico
+function stampaClassifica() {
+  const titoliTab = {
+    'camminatori': 'Classifica Camminatori',
+    'istruttori':  'Classifica Istruttori',
+    'squadre':     'Classifica Squadre',
+    'feedback':    'Feedback ASD',
+  };
+  const anno = state.editionYear || new Date().getFullYear();
+  const tabLabel = titoliTab[currentClassTab] || 'Classifiche';
+  const titoloOriginale = document.title;
+  document.title = `Miglio Rosso ${anno} - ${tabLabel}`;
+  window.print();
+  // Ripristino il titolo dopo la stampa (con piccolo delay per sicurezza cross-browser)
+  setTimeout(() => { document.title = titoloOriginale; }, 1000);
 }
 
 function showClassTab(id) {
