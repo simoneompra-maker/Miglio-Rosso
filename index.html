@@ -1463,53 +1463,64 @@ async function runOCR() {
     "Restituisci SOLO un oggetto JSON valido: {\"1\": 84, \"2\": 70, \"3\": 100}\n" +
     "Nessun testo prima o dopo. Nessun backtick. Nessun markdown.";
 
-  for (const slot of loadedSlots) {
-    const file = slotFiles[slot];
-    btn.innerHTML = `<div class="spinner"></div> Pagina ${slot}/${loadedSlots.length}…`;
-    status.textContent = `Analisi pagina ${slot} di ${loadedSlots.length}…`;
-    document.getElementById(`slot-status-${slot}`).textContent = '⏳ Analisi…';
+  try {
+    for (const slot of loadedSlots) {
+      const file = slotFiles[slot];
+      btn.innerHTML = `<div class="spinner"></div> Pagina ${slot}/${loadedSlots.length}…`;
+      status.textContent = `Analisi pagina ${slot} di ${loadedSlots.length}…`;
+      const statusEl = document.getElementById(`slot-status-${slot}`);
+      if (statusEl) statusEl.textContent = '⏳ Analisi…';
 
-    try {
-      const base64 = await fileToBase64(file);
-      const mimeType = file.type || 'image/jpeg';
+      try {
+        const base64 = await fileToBase64(file);
+        const mimeType = file.type || 'image/jpeg';
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-            generationConfig: { temperature: 0.1 }
-          })
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${state.apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
+              generationConfig: { temperature: 0.1 }
+            })
+          }
+        );
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error?.message || `HTTP ${response.status}`);
         }
-      );
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || `HTTP ${response.status}`);
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const clean = text.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(clean);
+
+        for (const [pet, pts] of Object.entries(parsed)) {
+          pendingScores[String(pet)] = Number(pts);
+        }
+        totalRead += Object.keys(parsed).length;
+        const elOk = document.getElementById(`slot-status-${slot}`);
+        if (elOk) elOk.textContent = `✅ ${Object.keys(parsed).length} pettorali`;
+
+      } catch(e) {
+        console.error(`Slot ${slot}:`, e);
+        const msg = e.name === 'AbortError' ? 'Timeout (60s) — riprova' : e.message;
+        errors.push(`Pag.${slot}: ${msg}`);
+        const elErr = document.getElementById(`slot-status-${slot}`);
+        if (elErr) elErr.textContent = '❌ Errore';
       }
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const clean = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(clean);
-
-      for (const [pet, pts] of Object.entries(parsed)) {
-        pendingScores[String(pet)] = Number(pts);
-      }
-      totalRead += Object.keys(parsed).length;
-      document.getElementById(`slot-status-${slot}`).textContent = `✅ ${Object.keys(parsed).length} pettorali`;
-
-    } catch(e) {
-      console.error(`Slot ${slot}:`, e);
-      errors.push(`Pag.${slot}: ${e.message}`);
-      document.getElementById(`slot-status-${slot}`).textContent = '❌ Errore';
     }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 Avvia OCR con Gemini';
   }
-
-  btn.disabled = false;
-  btn.innerHTML = '🔍 Avvia OCR con Gemini';
 
   if (totalRead === 0 && errors.length > 0) {
     status.textContent = 'Errore: ' + errors.join(' | ');
