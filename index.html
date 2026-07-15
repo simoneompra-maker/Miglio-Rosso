@@ -1683,41 +1683,30 @@ function getCategoryMeans(cat) {
 }
 
 // RISCRITTA — Doppio asse: media personale + media categoria
+// Feedback a SEMAFORO (3 fasce), asse singolo: confronto con la media di categoria.
+//   🟢 sopraMedia  = sopra la media del suo gruppo (oltre +3%)
+//   🟡 inMedia     = in linea con la media (entro ±3%)
+//   🔴 sottoMedia  = sotto la media del suo gruppo (oltre -3%)
 function getFeedback(pettorale) {
-  const empty = { eccellenza:[], puntoForte:[], buonLivello:[], daLavorare:[] };
+  const empty = { sopraMedia:[], inMedia:[], sottoMedia:[] };
   const a = state.athletes.find(x => x.pettorale === pettorale);
   if (!a) return empty;
 
   const medi = getCriteriMedi(pettorale);
-  const valori = Object.values(medi);
-  if (valori.length === 0) return empty;
-  const mediaPersonale = valori.reduce((s,v)=>s+v,0) / valori.length;
+  if (Object.keys(medi).length === 0) return empty;
 
   const mediaCat = getCategoryMeans(a.cat);
   if (!mediaCat) return empty;
 
-  const result = { eccellenza:[], puntoForte:[], buonLivello:[], daLavorare:[] };
+  const result = { sopraMedia:[], inMedia:[], sottoMedia:[] };
 
   for (const [nome, valore] of Object.entries(medi)) {
-    const sopraPersonale = valore >= mediaPersonale;
     const sogliaSup = mediaCat[nome] * (1 + NEUTRAL_ZONE);
     const sogliaInf = mediaCat[nome] * (1 - NEUTRAL_ZONE);
 
-    if (sopraPersonale) {
-      // Sopra la media personale
-      if (valore > sogliaSup) {
-        result.eccellenza.push(nome);          // 🟢 sopra cat. + sopra personale
-      } else {
-        result.puntoForte.push(nome);          // 🟡 sotto/in zona neutra cat. + sopra personale
-      }
-    } else {
-      // Sotto la media personale
-      if (valore < sogliaInf) {
-        result.daLavorare.push(nome);          // 🔴 sotto cat. + sotto personale
-      } else {
-        result.buonLivello.push(nome);         // 🔵 sopra/in zona neutra cat. + sotto personale
-      }
-    }
+    if (valore > sogliaSup)      result.sopraMedia.push(nome);   // 🟢
+    else if (valore < sogliaInf) result.sottoMedia.push(nome);   // 🔴
+    else                         result.inMedia.push(nome);      // 🟡
   }
   return result;
 }
@@ -1738,30 +1727,25 @@ function renderLegendaHTML() {
     <div style="font-size:13px;line-height:1.6;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed rgba(192,57,43,0.3);">
       <strong>Documento riservato all'istruttore di riferimento dell'ASD.</strong>
       Edizione sperimentale 2026. Le indicazioni sono di massima, basate sui voti anonimi
-      degli 8 giudici sull'andatura alternata, e rappresentano una <em>fotografia del momento</em>
+      di 8 dei 10 giudici (esclusi i due paralleli) sull'andatura alternata, e rappresentano una <em>fotografia del momento</em>
       della prestazione: restano un orientamento didattico e non sostituiscono la conoscenza
       diretta dei propri atleti.
     </div>
     <div class="legenda-titolo">Come leggere il feedback</div>
     <div class="legenda-row">
       <span class="legenda-icon">🟢</span>
-      <span class="legenda-label">Eccellenza</span>
-      — sopra la media di categoria e sopra la media personale dell'atleta
+      <span class="legenda-label">Sopra la media</span>
+      — sopra la media del suo gruppo (camminatori o istruttori)
     </div>
     <div class="legenda-row">
       <span class="legenda-icon">🟡</span>
-      <span class="legenda-label">Punto forte personale</span>
-      — sopra la media personale, c'è margine rispetto alla categoria
-    </div>
-    <div class="legenda-row">
-      <span class="legenda-icon">🔵</span>
-      <span class="legenda-label">Buon livello</span>
-      — sopra la media di categoria, è un punto meno forte nel profilo personale
+      <span class="legenda-label">In linea</span>
+      — in linea con la media del suo gruppo
     </div>
     <div class="legenda-row">
       <span class="legenda-icon">🔴</span>
       <span class="legenda-label">Da lavorare</span>
-      — sotto la media personale e sotto la media di categoria (priorità di lavoro)
+      — sotto la media del suo gruppo (priorità di lavoro)
     </div>
   </div>`;
 }
@@ -1770,10 +1754,9 @@ function renderLegendaHTML() {
 // Restituisce {label, color} per ogni criterio dell'atleta
 function getCriterioEtichetta(pettorale, criterio) {
   const fb = getFeedback(pettorale);
-  if (fb.eccellenza.includes(criterio))   return { label:'🟢', color:'#1a7a1a' };
-  if (fb.puntoForte.includes(criterio))   return { label:'🟡', color:'#9a7a00' };
-  if (fb.buonLivello.includes(criterio))  return { label:'🔵', color:'#0d4f8c' };
-  if (fb.daLavorare.includes(criterio))   return { label:'🔴', color:'#c0392b' };
+  if (fb.sopraMedia.includes(criterio))  return { label:'🟢', color:'#1a7a1a' };
+  if (fb.inMedia.includes(criterio))     return { label:'🟡', color:'#9a7a00' };
+  if (fb.sottoMedia.includes(criterio))  return { label:'🔴', color:'#c0392b' };
   return { label:'—', color:'var(--text-muted)' };
 }
 
@@ -1821,41 +1804,39 @@ function renderPuntiAttenzioneASD(data) {
   if (tutti.length < 2) return ''; // su 1 atleta solo non ha senso
 
   const criteri = Object.keys(FEEDBACK_CRITERI);
-  const conteggi = {}; // {criterio: {eccellenza:N, puntoForte:N, buonLivello:N, daLavorare:N}}
-  for (const c of criteri) conteggi[c] = {eccellenza:0, puntoForte:0, buonLivello:0, daLavorare:0};
+  const conteggi = {}; // {criterio: {sopraMedia:N, inMedia:N, sottoMedia:N}}
+  for (const c of criteri) conteggi[c] = {sopraMedia:0, inMedia:0, sottoMedia:0};
 
   for (const a of tutti) {
     const fb = getFeedback(a.pettorale);
     for (const c of criteri) {
-      if (fb.eccellenza.includes(c))  conteggi[c].eccellenza++;
-      if (fb.puntoForte.includes(c))  conteggi[c].puntoForte++;
-      if (fb.buonLivello.includes(c)) conteggi[c].buonLivello++;
-      if (fb.daLavorare.includes(c))  conteggi[c].daLavorare++;
+      if (fb.sopraMedia.includes(c))  conteggi[c].sopraMedia++;
+      if (fb.inMedia.includes(c))     conteggi[c].inMedia++;
+      if (fb.sottoMedia.includes(c))  conteggi[c].sottoMedia++;
     }
   }
 
   const N = tutti.length;
-  const pct = n => Math.round(n/N*100);
 
   // Frasi narrative
   const frasi = [];
 
-  // Eccellenze collettive: criteri dove >=50% degli atleti ha 🟢
-  const eccellenzeCollettive = criteri.filter(c => conteggi[c].eccellenza/N >= 0.5);
-  if (eccellenzeCollettive.length) {
-    frasi.push(`<strong style="color:#1a7a1a;">Eccellenze collettive:</strong> ${eccellenzeCollettive.map(c=>`<em>${c}</em> (${conteggi[c].eccellenza}/${N})`).join(' · ')} — è il marchio di fabbrica della squadra.`);
+  // Punti di forza: criteri dove >=50% degli atleti è sopra media (🟢)
+  const puntiForza = criteri.filter(c => conteggi[c].sopraMedia/N >= 0.5);
+  if (puntiForza.length) {
+    frasi.push(`<strong style="color:#1a7a1a;">Punti di forza collettivi:</strong> ${puntiForza.map(c=>`<em>${c}</em> (${conteggi[c].sopraMedia}/${N})`).join(' · ')} — è il marchio di fabbrica della squadra.`);
   }
 
-  // Criticità collettive: criteri dove >=30% degli atleti ha 🔴
-  const criticitaCollettive = criteri.filter(c => conteggi[c].daLavorare/N >= 0.3);
+  // Da lavorare insieme: criteri dove >=30% degli atleti è sotto media (🔴)
+  const criticitaCollettive = criteri.filter(c => conteggi[c].sottoMedia/N >= 0.3);
   if (criticitaCollettive.length) {
-    frasi.push(`<strong style="color:#c0392b;">Da lavorare insieme:</strong> ${criticitaCollettive.map(c=>`<em>${c}</em> (${conteggi[c].daLavorare}/${N})`).join(' · ')} — priorità di lavoro per la squadra.`);
+    frasi.push(`<strong style="color:#c0392b;">Da lavorare insieme:</strong> ${criticitaCollettive.map(c=>`<em>${c}</em> (${conteggi[c].sottoMedia}/${N})`).join(' · ')} — priorità di lavoro per la squadra.`);
   }
 
-  // Margine di crescita: criteri dove >=50% degli atleti ha 🔵
-  const marginiCrescita = criteri.filter(c => conteggi[c].buonLivello/N >= 0.5);
+  // Margine di rifinitura: criteri dove >=50% degli atleti è in linea con la media (🟡)
+  const marginiCrescita = criteri.filter(c => conteggi[c].inMedia/N >= 0.5);
   if (marginiCrescita.length) {
-    frasi.push(`<strong style="color:#0d4f8c;">Margine di rifinitura:</strong> ${marginiCrescita.map(c=>`<em>${c}</em> (${conteggi[c].buonLivello}/${N})`).join(' · ')} — buoni livelli che possono crescere verso l'eccellenza.`);
+    frasi.push(`<strong style="color:#8a6a00;">Margine di rifinitura:</strong> ${marginiCrescita.map(c=>`<em>${c}</em> (${conteggi[c].inMedia}/${N})`).join(' · ')} — in linea con la media, possono crescere verso l'eccellenza.`);
   }
 
   if (!frasi.length) {
@@ -1895,10 +1876,9 @@ function renderFeedbackASD() {
     const rows = sorted.map(a => {
       const fb = getFeedback(a.pettorale);
       const righe = [
-        renderRiga('🟢', 'Eccellenza',           fb.eccellenza, '#1a7a1a'),
-        renderRiga('🟡', 'Punto forte personale', fb.puntoForte,  '#9a7a00'),
-        renderRiga('🔵', 'Buon livello',         fb.buonLivello, '#0d4f8c'),
-        renderRiga('🔴', 'Da lavorare',          fb.daLavorare,  '#c0392b'),
+        renderRiga('🟢', 'Sopra la media',    fb.sopraMedia,  '#1a7a1a'),
+        renderRiga('🟡', 'In linea',          fb.inMedia,     '#9a7a00'),
+        renderRiga('🔴', 'Da lavorare',       fb.sottoMedia,  '#c0392b'),
       ].filter(Boolean).join('');
       return `<div style="padding:12px 0;border-bottom:1px solid var(--border);">
         <div style="font-weight:700;font-size:15px;margin-bottom:6px;">${a.pettorale}. ${a.cognome} ${a.nome}</div>
@@ -1951,10 +1931,9 @@ function buildFeedbackHTML(asd, data) {
     const rows = sorted.map(a => {
       const fb = getFeedback(a.pettorale);
       const righe = [
-        renderRiga('🟢', 'Eccellenza',           fb.eccellenza, '#1a7a1a'),
-        renderRiga('🟡', 'Punto forte personale', fb.puntoForte,  '#9a7a00'),
-        renderRiga('🔵', 'Buon livello',         fb.buonLivello, '#0d4f8c'),
-        renderRiga('🔴', 'Da lavorare',          fb.daLavorare,  '#c0392b'),
+        renderRiga('🟢', 'Sopra la media',    fb.sopraMedia,  '#1a7a1a'),
+        renderRiga('🟡', 'In linea',          fb.inMedia,     '#9a7a00'),
+        renderRiga('🔴', 'Da lavorare',       fb.sottoMedia,  '#c0392b'),
       ].filter(Boolean).join('');
       return `<div style="padding:12px 0;border-bottom:1px solid #eee;">
         <div style="font-weight:700;font-size:15px;margin-bottom:5px;">${a.cognome} ${a.nome}</div>
@@ -1995,15 +1974,14 @@ function buildFeedbackHTML(asd, data) {
     <div style="font-size:12px;line-height:1.6;color:#444;margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed rgba(237,45,35,0.3);">
       <strong>Documento riservato all'istruttore di riferimento dell'ASD.</strong>
       Edizione sperimentale 2026. Le indicazioni sono di massima, basate sui voti anonimi
-      degli 8 giudici sull'andatura alternata, e rappresentano una <em>fotografia del momento</em>
+      di 8 dei 10 giudici (esclusi i due paralleli) sull'andatura alternata, e rappresentano una <em>fotografia del momento</em>
       della prestazione: restano un orientamento didattico e non sostituiscono la conoscenza
       diretta dei propri atleti.
     </div>
     <div class="titolo">Come leggere il feedback</div>
-    <div class="row"><span class="ic">🟢</span> <span class="lb">Eccellenza:</span> sopra la media di categoria e sopra la media personale dell'atleta</div>
-    <div class="row"><span class="ic">🟡</span> <span class="lb">Punto forte personale:</span> sopra la media personale, c'è margine rispetto alla categoria</div>
-    <div class="row"><span class="ic">🔵</span> <span class="lb">Buon livello:</span> sopra la media di categoria, è un punto meno forte nel profilo personale</div>
-    <div class="row"><span class="ic">🔴</span> <span class="lb">Da lavorare:</span> sotto la media personale e sotto la media di categoria (priorità di lavoro)</div>
+    <div class="row"><span class="ic">🟢</span> <span class="lb">Sopra la media:</span> sopra la media del suo gruppo (camminatori o istruttori)</div>
+    <div class="row"><span class="ic">🟡</span> <span class="lb">In linea:</span> in linea con la media del suo gruppo</div>
+    <div class="row"><span class="ic">🔴</span> <span class="lb">Da lavorare:</span> sotto la media del suo gruppo (priorità di lavoro)</div>
   </div>
   <div>
     ${renderMatriceASD(data)}
